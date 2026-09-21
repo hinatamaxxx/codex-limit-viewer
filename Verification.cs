@@ -56,8 +56,18 @@ internal static class Verification
     {
         if (!value) throw new Exception(name); results.Add("PASS " + name);
     }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
     internal static int Render(bool live = false)
     {
+        using var menu = new TrayContextMenu();
+        using var submenu = new TraySubMenu();
+        menu.Items.Add("Menu test");
+        menu.Show(new Point(0, 0));
+        Application.DoEvents();
+        if (!menu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
+            (GetWindowLongPtr(submenu.Handle, -20).ToInt64() & 0x80) == 0)
+            throw new Exception("Tray menus must auto-close and never create taskbar buttons.");
+        menu.Close();
         using var f = new DetailsForm(new Preferences());
         var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow);
         var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow);

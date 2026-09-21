@@ -37,7 +37,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon agyTray = new();
     private readonly NotifyIcon[] extraSlots = Enumerable.Range(0, 2).Select(_ => new NotifyIcon()).ToArray();
     private NotifyIcon? selectedTray;
-    private readonly ContextMenuStrip menu = new();
+    private readonly TrayContextMenu menu = new();
     private readonly System.Windows.Forms.Timer poll = new() { Interval = 60000 };
 
     private readonly CancellationTokenSource stop = new();
@@ -55,7 +55,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         form.TrayBounds = () => widget.Visible ? widget.Bounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         form.RefreshRequested += () => _ = Refresh();
         menu.Items.Add(L.T("パネルを開く"), null, (_, _) => form.Reveal(true));
-        menu.Items.Add(L.T("詳細を閉じる"), null, (_, _) => { form.SetPinned(false); form.Hide(); });
         menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => _ = Refresh());
         var startup = new ToolStripMenuItem(L.T("Windows起動時に開始")) { CheckOnClick = true };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key?.GetValue("CodexLimitViewer") != null;
@@ -69,7 +68,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             catch { startup.Checked = !startup.Checked; MessageBox.Show(L.T("自動起動の設定を保存できませんでした。"), "Codex Limit Viewer"); }
         };
         menu.Items.Add(startup);
-        var languageMenu = new ToolStripMenuItem("Language / 言語");
+        var languageMenu = new ToolStripMenuItem("Language / 言語") { DropDown = new TraySubMenu() };
         foreach (var language in new[] { ("日本語", "ja"), ("English", "en") })
         {
             var item = new ToolStripMenuItem(language.Item1) { Checked = prefs.Language == language.Item2 };

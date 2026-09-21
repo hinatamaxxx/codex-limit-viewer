@@ -34,6 +34,8 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 
 ## Usage
 
+![Codex Limit Viewer](docs/menu-en.png)
+
 - **Left-Click**: Toggle details popup.
 - **Right-Click**: Context menu (Refresh Now, Language, Launch at Startup, Exit).
 - **Startup**: Opt-in via the right-click menu (disabled by default).
