@@ -67,6 +67,21 @@ internal static class Verification
         if (!menu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
             (GetWindowLongPtr(submenu.Handle, -20).ToInt64() & 0x80) == 0)
             throw new Exception("Tray menus must auto-close and never create taskbar buttons.");
+        var anchor = new Rectangle(800, 800, 192, 72);
+        menu.TrayAnchor = () => anchor;
+        menu.Close();
+        menu.Show(new Point(10, 10));
+        Application.DoEvents();
+        var firstPosition = menu.Location;
+        menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), false);
+        menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), true);
+        if (!menu.Visible) throw new Exception("An inside click must not dismiss the menu.");
+        menu.ObservePointer(Point.Empty, false);
+        menu.ObservePointer(Point.Empty, true);
+        if (menu.Visible) throw new Exception("An outside click must dismiss the menu.");
+        menu.Show(new Point(400, 400));
+        Application.DoEvents();
+        if (menu.Location != firstPosition) throw new Exception("Menu position must not depend on click position.");
         menu.Close();
         using var f = new DetailsForm(new Preferences());
         var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow);
