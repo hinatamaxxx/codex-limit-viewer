@@ -30,7 +30,7 @@ internal sealed class Preferences
         }
         catch { return new(); }
     }
-    public static bool KnownProvider(string? provider) => provider is "Codex" or "Antigravity" or "Claude Code";
+    public static bool KnownProvider(string? provider) => provider is "Codex" or "Antigravity" or "Claude Code" or "Grok";
     public void SelectTaskbarProvider(bool top, string provider, bool persist = true)
     {
         if (!KnownProvider(provider)) return;

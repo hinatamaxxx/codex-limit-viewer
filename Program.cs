@@ -16,8 +16,11 @@ internal static class Program
             catch (Exception e) { c = new("Codex", [], null, e.Message); }
             Reading a;
             try { a = Providers.AntigravityLive(CancellationToken.None).GetAwaiter().GetResult(); } catch { a = new("Antigravity", [], null, L.T("受信ファイルを読み取れません")); }
+            Reading g;
+            try { g = GrokUsage.ReadLive(CancellationToken.None).GetAwaiter().GetResult(); }
+            catch (Exception e) { g = new("Grok", [], null, e.Message); }
             Directory.CreateDirectory(Preferences.Folder);
-            File.WriteAllText(Path.Combine(Preferences.Folder, "diagnostics.json"), JsonSerializer.Serialize(new { codex = c, antigravity = a, claudeCode = ClaudeCodeUsage.ReadSnapshot() }, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(Path.Combine(Preferences.Folder, "diagnostics.json"), JsonSerializer.Serialize(new { codex = c, antigravity = a, claudeCode = ClaudeCodeUsage.ReadSnapshot(), grok = g }, new JsonSerializerOptions { WriteIndented = true }));
             return c.Quotas.Count > 0 ? 0 : 1;
         }
         L.English = args.Contains("--english") || (!args.Contains("--japanese") && Preferences.Load().Language == "en");
@@ -46,6 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly TrayWidget widget;
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private Reading? claude;
+    private Reading grok = new("Grok", [], null);
     private bool busy, closing, hoverOpened;
 
     internal TrayApplicationContext()
@@ -82,7 +86,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         foreach (var row in new[] { (Top: true, Label: L.T("上段")), (Top: false, Label: L.T("下段")) })
         {
             var rowMenu = new ToolStripMenuItem(row.Label) { DropDown = new TraySubMenu() };
-            foreach (var provider in new[] { "Codex", "Antigravity", "Claude Code" })
+            foreach (var provider in new[] { "Codex", "Antigravity", "Claude Code", "Grok" })
             {
                 var item = new ToolStripMenuItem(provider);
                 bool top = row.Top;
@@ -155,11 +159,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (busy || closing) return;
         busy = true; Apply();
         var agyTask = RefreshAntigravity();
+        var grokTask = RefreshGrok();
         claude = ClaudeCodeUsage.ReadSnapshot();
         try { codex = await Providers.Codex(stop.Token); }
         catch (OperationCanceledException) { codex = codex with { Error = L.T("接続がタイムアウトしました") }; }
         catch (Exception e) { codex = codex with { Error = e.Message }; }
-        finally { await agyTask; busy = false; if (!closing) Apply(); }
+        finally { await Task.WhenAll(agyTask, grokTask); busy = false; if (!closing) Apply(); }
     }
     private async Task RefreshAntigravity()
     {
@@ -167,13 +172,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (OperationCanceledException) { agy = agy with { Error = L.T("取得がタイムアウトしました") }; }
         catch (Exception e) { agy = agy with { Error = e.Message }; }
     }
+    private async Task RefreshGrok()
+    {
+        try { grok = await GrokUsage.ReadLive(stop.Token); }
+        catch (OperationCanceledException) { grok = grok with { Error = L.T("取得がタイムアウトしました") }; }
+        catch (Exception e) { grok = grok with { Error = e.Message }; }
+    }
     private void Apply()
     {
         if (closing) return;
         Reading? displayedClaude = claude;
         if (displayedClaude == null && (prefs.TaskbarTop == "Claude Code" || prefs.TaskbarBottom == "Claude Code"))
             displayedClaude = new Reading("Claude Code", [], null, L.T("Claude Codeの残量は利用できません"));
-        form.UpdateReadings(codex, agy, displayedClaude, busy);
+        Reading? displayedGrok = grok.Quotas.Count > 0 || prefs.TaskbarTop == "Grok" || prefs.TaskbarBottom == "Grok" ? grok : null;
+        form.UpdateReadings(codex, agy, displayedClaude, displayedGrok, busy);
         var top = ForTaskbar(prefs.TaskbarTop, displayedClaude);
         var bottom = ForTaskbar(prefs.TaskbarBottom, displayedClaude);
         widget.UpdateReadings(top, bottom);
@@ -185,6 +197,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         "Antigravity" => agy,
         "Claude Code" => displayedClaude ?? new Reading("Claude Code", [], null, L.T("Claude Codeの残量は利用できません")),
+        "Grok" => grok,
         _ => codex
     };
     protected override void ExitThreadCore()

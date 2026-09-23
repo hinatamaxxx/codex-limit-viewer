@@ -16,6 +16,8 @@ internal static class Verification
             Check(display.TaskbarTop == "Codex" && display.TaskbarBottom == "Claude Code", "Taskbar row can show Claude Code", results);
             display.SelectTaskbarProvider(true, "Claude Code", persist: false);
             Check(display.TaskbarTop == "Claude Code" && display.TaskbarBottom == "Codex", "Selecting the other row swaps providers", results);
+            display.SelectTaskbarProvider(false, "Grok", persist: false);
+            Check(display.TaskbarTop == "Claude Code" && display.TaskbarBottom == "Grok", "Taskbar row can show Grok", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "リセットまで 4日 4時間 0分", "Countdown 100 hours uses days", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(24)) == "リセットまで 1日 0時間 0分", "Countdown day boundary", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromMinutes(1439)) == "リセットまで 23時間 59分", "Countdown below one day", results);
@@ -35,6 +37,7 @@ internal static class Verification
             Check(L.F("取得 {age}", ("age", "09/22 03:00:00")) == "Fetched 09/22 03:00:00", "English timestamp", results);
             Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel" &&
                 L.T("Codexアプリ経由") == "Via Codex app" &&
+                L.T("Grok CLI経由") == "Via Grok CLI" &&
                 L.T("ホバーで詳細を開く") == "Open details on hover", "English labels", results);
             L.English = false;
             using var codex = JsonDocument.Parse("""{"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":22.5,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":90,"windowDurationMins":10080}},"extra":{"primary":{"usedPercent":15,"windowDurationMins":60}}}}""");
@@ -65,6 +68,14 @@ internal static class Verification
             using var expiredClaudeData = JsonDocument.Parse("""{"rate_limits":{"five_hour":{"used_percentage":20,"resets_at":1000000000}}}""");
             Check(ClaudeCodeUsage.Parse(expiredClaudeData.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0,
                 "Expired Claude Code limits are not displayed", results);
+            using var grokData = JsonDocument.Parse("""{"config":{"creditUsagePercent":27.5,"currentPeriod":{"type":"USAGE_PERIOD_TYPE_WEEKLY","end":"2026-10-01T00:00:00Z"}}}""");
+            var grok = GrokUsage.Parse(grokData.RootElement, new DateTimeOffset(2026, 9, 24, 0, 0, 0, TimeSpan.Zero));
+            Check(grok.Quotas.Count == 1 && grok.Quotas[0].Remaining == 72.5 && grok.Quotas[0].Label == "週間" && grok.Quotas[0].Reset?.UtcDateTime == new DateTime(2026, 10, 1),
+                "Grok weekly usage becomes remaining quota and reset date", results);
+            using var grokMonthly = JsonDocument.Parse("""{"config":{"creditUsagePercent":27.5,"currentPeriod":{"type":"USAGE_PERIOD_TYPE_MONTHLY","end":"2026-10-01T00:00:00Z"}}}""");
+            bool invalidGrok = false;
+            try { GrokUsage.Parse(grokMonthly.RootElement, DateTimeOffset.UtcNow); } catch (IOException) { invalidGrok = true; }
+            Check(invalidGrok, "Grok non-weekly data is not mislabeled", results);
             results.Add("All tests passed.");
             var area = new Rectangle(0, 0, 1920, 1040);
             var anchor = new Rectangle(1700, 1045, 24, 24);
@@ -123,7 +134,7 @@ internal static class Verification
         var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow, Source: L.T("Codexアプリ経由"));
         var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("agy CLI経由"));
         if (live) { c = Task.Run(() => Providers.Codex(CancellationToken.None)).GetAwaiter().GetResult(); a = Task.Run(() => Providers.AntigravityLive(CancellationToken.None)).GetAwaiter().GetResult(); }
-        f.UpdateReadings(c, a, null, false);
+        f.UpdateReadings(c, a, null, null, false);
         f.Show(); f.Expand(false, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-compact.png")); }
         f.Expand(true, false); Application.DoEvents();
@@ -133,6 +144,12 @@ internal static class Verification
         var exampleClaude = new Reading("Claude Code", [new("5時間", 76.5, DateTimeOffset.UtcNow.AddHours(3))], DateTimeOffset.UtcNow);
         using (var selectedClaude = ClockTextRenderer.Render(192, 72, 144, c, exampleClaude))
             selectedClaude.Save(Path.Combine(AppContext.BaseDirectory, "preview-claude.png"));
+        var exampleGrok = new Reading("Grok", [new("週間", 73, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("Grok CLI経由"));
+        f.UpdateReadings(c, a, null, exampleGrok, false);
+        f.Expand(true, false); Application.DoEvents();
+        using (var grokDetails = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(grokDetails, f.ClientRectangle); grokDetails.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-details.png")); }
+        using (var selectedGrok = ClockTextRenderer.Render(192, 72, 144, c, exampleGrok))
+            selectedGrok.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-taskbar.png"));
         f.Hide(); return 0;
     }
 }

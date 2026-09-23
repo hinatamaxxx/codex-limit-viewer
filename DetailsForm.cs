@@ -17,6 +17,7 @@ internal sealed class DetailsForm : Form
     private readonly BufferedPanel list = new() { AutoScroll = true, BackColor = Color.FromArgb(32, 32, 36) };
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private Reading? claude;
+    private Reading? grok;
     private bool expanded, refreshing, moving;
     private Point dragOrigin, windowOrigin;
     private Size target;
@@ -53,7 +54,7 @@ internal sealed class DetailsForm : Form
         Location = new Point(area.Right - Width - 16, area.Bottom - Height - 8);
         ClampPosition();
         MakeButton(pin, L.T("固定"), L.T("常時表示を切り替える"), () => SetPinned(!prefs.Pinned));
-        MakeButton(refresh, "↻", L.T("CodexとAntigravityを更新"), () => RefreshRequested?.Invoke());
+        MakeButton(refresh, "↻", L.T("使用状況を更新"), () => RefreshRequested?.Invoke());
         MakeButton(hide, "×", L.T("通知領域に収納"), CloseDetails);
         Controls.Add(list);
         clock.Tick += (_, _) =>
@@ -110,9 +111,9 @@ internal sealed class DetailsForm : Form
     {
         prefs.Pinned = value; prefs.Save(); LayoutButtons(); Invalidate();
     }
-    internal void UpdateReadings(Reading c, Reading a, Reading? cl, bool busy)
+    internal void UpdateReadings(Reading c, Reading a, Reading? cl, Reading? gr, bool busy)
     {
-        codex = c; agy = a; claude = cl; refreshing = busy;
+        codex = c; agy = a; claude = cl; grok = gr; refreshing = busy;
         if (expanded) RebuildRows();
         Invalidate();
     }
@@ -160,12 +161,12 @@ internal sealed class DetailsForm : Form
     internal void Expand(bool value, bool animate = true)
     {
         expanded = value;
-        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0);
-        int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0);
-        int datedCount = new[] { codex, agy, claude }.Where(r => r != null).Cast<Reading>()
+        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0) + (grok != null && grok.Quotas.Count == 0 ? 1 : 0);
+        int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0) + (grok?.Quotas.Count ?? 0);
+        int datedCount = new[] { codex, agy, claude, grok }.Where(r => r != null).Cast<Reading>()
             .Sum(r => r.Quotas.Count(q => FormatResetDate(q.Reset, DateTimeOffset.Now) != null));
         int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(258 + 70 * count + 22 * datedCount + 20 * missing + (claude == null ? 0 : 50), 300, 720));
+            Math.Clamp(258 + 70 * count + 22 * datedCount + 20 * missing + (claude == null ? 0 : 50) + (grok == null ? 0 : 50), 300, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
         ClientSize = target; ClampPosition();
@@ -209,19 +210,19 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
         int y = 0;
-        foreach (var reading in new[] { codex, agy, claude }.Where(r => r != null).Cast<Reading>())
+        foreach (var reading in new[] { codex, agy, claude, grok }.Where(r => r != null).Cast<Reading>())
         {
             var color = reading.Provider == "Codex" ? Mint : Violet;
             AddLabel(reading.Provider, new Rectangle(8, y, 210, 25), color, 12);
-            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("agy CLI経由");
-            AddLabel(status, new Rectangle(232, y, 185, 28), Muted, 11, ellipsis: false);
+            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
+            AddLabel(status, new Rectangle(232, y, 160, 28), Muted, 11, ellipsis: false);
             y += 36;
             if (reading.Quotas.Count == 0)
             {
