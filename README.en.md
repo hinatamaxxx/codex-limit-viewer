@@ -4,8 +4,6 @@
 
 A sleek, lightweight Windows 11 system tray application that continuously displays remaining quota for two selected services in a two-line layout. Codex and Antigravity CLI (`agy`) are selected by default.
 
-> Grok support is in the in-development v0.1.2. It is not included in the published v0.1.1 release yet.
-
 ![Taskbar Preview](docs/taskbar.png)
 
 ## Features
@@ -13,8 +11,8 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area without interrupting your work.
 - **Choose Two Rows**: Select Codex, Antigravity, Claude Code, or Grok for the top and bottom rows from the right-click menu. Selecting an item already in the other row automatically swaps them.
 - **Details on Hover**: Off by default. When enabled, hovering displays per-bucket quota, reset countdowns (days, hours, minutes), reset dates for periods crossing into later days, and the last updated timestamp in a smooth fade popup. It fades out as soon as the pointer leaves both the display and popup. When disabled, a centered tooltip shows the app name.
-- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok CLI every 60 seconds without extracting or storing credentials. Receives Claude Code usage from its official status line.
-- **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`). Choose Grok for either taskbar row in the right-click menu.
+- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds without extracting or storing credentials. Receives Claude Code usage from its official status line.
+- **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`) in the details popup. Choose Grok for either taskbar row in the right-click menu.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
 
@@ -38,7 +36,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
    - Install path: `%LOCALAPPDATA%/Programs/CodexLimitViewer`
    - Data directory: `%LOCALAPPDATA%/CodexLimitViewer`
 4. **Taskbar Settings**:
-   Open Windows **Settings > Personalization > Taskbar > Other system tray icons**, turn on the application entries, and keep the 4 slots adjacent.
+   Open Windows **Settings > Personalization > Taskbar > Other system tray icons**, turn on all four tray icons for this application, and keep the four slots adjacent on the taskbar.
 
 ## Usage
 
@@ -47,7 +45,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Hover**: Opens the details popup (disabled by default). It fades out immediately after the pointer leaves both the tray display and the popup. When disabled, a centered tooltip shows the app name.
 - **Left-Click**: Toggles the details popup. A popup opened by click closes immediately upon another click or clicking outside.
 - **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit). Changing displayed items or toggles keeps the menu open; click outside to dismiss it.
-- **Displayed Services**: In the right-click menu, hover over "Taskbar display" then "Top row" or "Bottom row" to reveal Codex, Antigravity, Claude Code, and Grok. Click only the final choice. The taskbar stays at two rows.
+- **Displayed Services**: In the right-click menu, hover over "Taskbar display" then "Top row" or "Bottom row", and click your desired service (Codex, Antigravity, Claude Code, or Grok). The taskbar stays at two rows.
 - **Startup**: Opt-in via the right-click menu (disabled by default).
 
 ## Claude Code Integration
@@ -63,6 +61,8 @@ The setup keeps any existing status line unchanged (add the bridge command manua
 ## Grok Integration
 
 Install the official Grok Build CLI and sign in with `grok login` to see the remaining weekly quota and reset time. This is not a separate per-chat limit for the web version. The app queries the CLI's read-only interface without reading or storing credentials. It refreshes every 60 seconds and shows “—” instead of a misleading 0% when data is unavailable.
+
+![Example with Grok in the bottom row](docs/grok-taskbar.png)
 
 To add another provider, give this repository URL to a coding assistant and ask it to implement support.
 
@@ -86,3 +86,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - Unofficial application.
 - Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
 - License: [MIT License](LICENSE)
+- Codex was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High). The specific Codex model setting was not verified, so it is not named here.
