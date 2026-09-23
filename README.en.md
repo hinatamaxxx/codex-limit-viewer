@@ -86,4 +86,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - Unofficial application.
 - Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
 - License: [MIT License](LICENSE)
-- Codex was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High). The specific Codex model setting was not verified, so it is not named here.
+- Codex with GPT-6 Sol (reasoning effort: Medium) was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
