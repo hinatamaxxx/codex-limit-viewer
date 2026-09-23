@@ -83,7 +83,7 @@ internal static class Verification
         menu.Items.Add("Menu test");
         menu.Show(new Point(0, 0));
         Application.DoEvents();
-        if (menu.AutoClose || submenu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
+        if (!menu.AutoClose || !submenu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
             (GetWindowLongPtr(submenu.Handle, -20).ToInt64() & 0x80) == 0)
             throw new Exception("Tray menus must stay open for settings changes and never create taskbar buttons.");
         var anchor = new Rectangle(800, 800, 192, 72);

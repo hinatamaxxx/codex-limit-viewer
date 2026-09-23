@@ -72,8 +72,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         menu.TrayAnchor = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
         form.RefreshRequested += () => _ = Refresh();
-        menu.Items.Add(L.T("パネルを開く"), null, (_, _) => { menu.Close(); hoverOpened = false; form.Reveal(true); });
-        menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => { menu.Close(); _ = Refresh(); });
+        menu.Items.Add(L.T("パネルを開く"), null, (_, _) => { menu.CloseForAction(); hoverOpened = false; form.Reveal(true); });
+        menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => { menu.CloseForAction(); _ = Refresh(); });
         var hoverOption = new ToolStripMenuItem(L.T("ホバーで詳細を開く")) { CheckOnClick = true, Checked = prefs.OpenDetailsOnHover };
         hoverOption.CheckedChanged += (_, _) => { prefs.OpenDetailsOnHover = hoverOption.Checked; prefs.Save(); widget.UpdateTooltip(); };
         menu.Items.Add(hoverOption);
@@ -128,7 +128,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             languageMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(languageMenu);
-        menu.Items.Add(L.T("終了"), null, (_, _) => { menu.Close(); ExitThread(); });
+        menu.Items.Add(L.T("終了"), null, (_, _) => { menu.CloseForAction(); ExitThread(); });
         tray.Icon = TrayPresentation.ReservationIcon(); tray.Text = "Codex Limit Viewer"; tray.ContextMenuStrip = menu; tray.Visible = true;
         agyTray.Icon = TrayPresentation.ReservationIcon(); agyTray.Text = "Antigravity"; agyTray.ContextMenuStrip = menu; agyTray.Visible = true;
         int slotNumber = 0;
