@@ -8,6 +8,10 @@ internal sealed class DetailsForm : Form
     private readonly Preferences prefs;
     private string? rowsKey;
     private readonly System.Windows.Forms.Timer clock = new() { Interval = 1000 };
+    private readonly System.Windows.Forms.Timer fade = new() { Interval = 15 };
+    private const int FadeDurationMs = 160;
+    private long fadeStarted;
+    private double fadeFrom, fadeTo;
     private readonly Button pin = new(), refresh = new(), hide = new();
     private readonly BufferedPanel list = new() { AutoScroll = true, BackColor = Color.FromArgb(32, 32, 36) };
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
@@ -48,7 +52,7 @@ internal sealed class DetailsForm : Form
         ClampPosition();
         MakeButton(pin, L.T("固定"), L.T("常時表示を切り替える"), () => SetPinned(!prefs.Pinned));
         MakeButton(refresh, "↻", L.T("CodexとAntigravityを更新"), () => RefreshRequested?.Invoke());
-        MakeButton(hide, "×", L.T("通知領域に収納"), Hide);
+        MakeButton(hide, "×", L.T("通知領域に収納"), Dismiss);
         Controls.Add(list);
         clock.Tick += (_, _) =>
         {
@@ -61,10 +65,11 @@ internal sealed class DetailsForm : Form
             }
         };
         clock.Start();
-        Deactivate += (_, _) => { if (!prefs.Pinned) Hide(); };
+        fade.Tick += (_, _) => AdvanceFade();
+        Deactivate += (_, _) => { if (!prefs.Pinned) Dismiss(); };
         KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.Escape) { if (expanded && prefs.Pinned) Expand(false); else Hide(); }
+            if (e.KeyCode == Keys.Escape) { if (expanded && prefs.Pinned) Expand(false); else Dismiss(); }
             if (e.KeyCode is Keys.Enter or Keys.Space) Expand(!expanded);
         };
         Resize += (_, _) => { RoundWindow(); LayoutButtons(); PositionAtTray(); Invalidate(); };
@@ -112,7 +117,32 @@ internal sealed class DetailsForm : Form
     internal void Reveal(bool nearTray = false)
     {
         PositionAtTray();
-        Expand(true, false); PositionAtTray(); Show(); Activate();
+        Expand(true, false); PositionAtTray();
+        if (!Visible) { Opacity = 0; Show(); }
+        Activate();
+        FadeTo(1);
+    }
+    internal bool IsDismissing => fade.Enabled && fadeTo == 0;
+    internal void Dismiss()
+    {
+        if (Visible && !IsDismissing) FadeTo(0);
+    }
+    private void FadeTo(double targetOpacity)
+    {
+        if (fade.Enabled && fadeTo == targetOpacity) return;
+        fadeFrom = Opacity;
+        fadeTo = targetOpacity;
+        fadeStarted = Environment.TickCount64;
+        fade.Start();
+    }
+    private void AdvanceFade()
+    {
+        double progress = Math.Clamp((Environment.TickCount64 - fadeStarted) / (double)FadeDurationMs, 0, 1);
+        double eased = progress * progress * (3 - 2 * progress);
+        Opacity = fadeFrom + (fadeTo - fadeFrom) * eased;
+        if (progress < 1) return;
+        fade.Stop();
+        if (fadeTo == 0) { Hide(); Opacity = 1; }
     }
     internal void Expand(bool value, bool animate = true)
     {
@@ -135,7 +165,7 @@ internal sealed class DetailsForm : Form
     {
         if (keyData == Keys.Escape)
         {
-            if (expanded && prefs.Pinned) Expand(false); else Hide();
+            if (expanded && prefs.Pinned) Expand(false); else Dismiss();
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);
@@ -237,7 +267,7 @@ internal sealed class DetailsForm : Form
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { clock.Dispose(); }
+        if (disposing) { clock.Dispose(); fade.Dispose(); }
         base.Dispose(disposing);
     }
     private sealed class BufferedPanel : Panel

@@ -53,17 +53,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
         form = new(prefs);
         prefs.Pinned = false;
         widget = new(new[] { tray, agyTray }.Concat(extraSlots).ToArray(), menu);
-        widget.OpenDetails += () => { hoverOpened = false; if (form.Visible) form.Hide(); else form.Reveal(true); };
+        widget.OpenDetails += () => { hoverOpened = false; if (form.Visible) form.Dismiss(); else form.Reveal(true); };
         widget.HoverDetailsEnabled = () => prefs.OpenDetailsOnHover;
+        widget.UpdateTooltip();
         widget.HoverDetails += () => { if (!form.Visible) { hoverOpened = true; outsideSince = 0; form.Reveal(true); } };
         form.VisibleChanged += (_, _) => { if (!form.Visible) { hoverOpened = false; outsideSince = 0; } };
-        menu.Opened += (_, _) => { if (hoverOpened) form.Hide(); };
+        menu.Opened += (_, _) => { if (hoverOpened) form.Dismiss(); };
         hoverClose.Tick += (_, _) =>
         {
             if (!hoverOpened || !form.Visible || prefs.Pinned) return;
-            if (widget.IsHovered || form.Bounds.Contains(Cursor.Position)) { outsideSince = 0; return; }
+            if (widget.IsHovered || form.Bounds.Contains(Cursor.Position))
+            {
+                outsideSince = 0;
+                if (form.IsDismissing) form.Reveal(true);
+                return;
+            }
             if (outsideSince == 0) outsideSince = Environment.TickCount64;
-            else if (Environment.TickCount64 - outsideSince >= 350) form.Hide();
+            else if (Environment.TickCount64 - outsideSince >= 350) form.Dismiss();
         };
         form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         menu.TrayAnchor = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
@@ -71,7 +77,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(L.T("パネルを開く"), null, (_, _) => { hoverOpened = false; form.Reveal(true); });
         menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => _ = Refresh());
         var hoverOption = new ToolStripMenuItem(L.T("ホバーで詳細を開く")) { CheckOnClick = true, Checked = prefs.OpenDetailsOnHover };
-        hoverOption.CheckedChanged += (_, _) => { prefs.OpenDetailsOnHover = hoverOption.Checked; prefs.Save(); };
+        hoverOption.CheckedChanged += (_, _) => { prefs.OpenDetailsOnHover = hoverOption.Checked; prefs.Save(); widget.UpdateTooltip(); };
         menu.Items.Add(hoverOption);
         var startup = new ToolStripMenuItem(L.T("Windows起動時に開始")) { CheckOnClick = true };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key?.GetValue("CodexLimitViewer") != null;
@@ -110,7 +116,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         foreach (var icon in new[] { tray, agyTray })
         {
             icon.MouseDown += (_, _) => selectedTray = icon;
-            icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) { selectedTray = icon; hoverOpened = false; if (form.Visible && !prefs.Pinned) form.Hide(); else form.Reveal(true); } };
+            icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) { selectedTray = icon; hoverOpened = false; if (form.Visible && !prefs.Pinned) form.Dismiss(); else form.Reveal(true); } };
         }
         poll.Tick += (_, _) => _ = Refresh();
 

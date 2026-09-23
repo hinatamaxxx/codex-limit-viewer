@@ -14,6 +14,7 @@ internal sealed class TrayWidget : Form
     private bool needsPaint = true;
     private bool hovered;
     private bool hoverHandled;
+    private bool tooltipVisible;
     private long hoverStarted;
     private Point taskbarPosition;
     internal bool IsHovered => hovered;
@@ -86,13 +87,18 @@ internal sealed class TrayWidget : Form
     {
         codex = c; agy = a;
         needsPaint = true;
-        tooltip.SetToolTip(this, TooltipText.For(c) + "\n" + TooltipText.For(a));
         Align(); Invalidate();
+    }
+    internal void UpdateTooltip()
+    {
+        if (!tooltipVisible) return;
+        tooltip.Hide(this);
+        tooltipVisible = false;
     }
     private void Align()
     {
         var rectangles = slots.Select(TrayPresentation.GetBounds).ToArray();
-        if (rectangles.Any(r => r == null)) { Hide(); return; }
+        if (rectangles.Any(r => r == null)) { UpdateTooltip(); Hide(); return; }
         var ordered = rectangles.Select(r => r!.Value).OrderBy(r => r.Left).ToArray();
         var area = ordered.Aggregate(Rectangle.Union);
         var screen = Screen.FromRectangle(area);
@@ -100,7 +106,7 @@ internal sealed class TrayWidget : Form
             area.Width <= ordered.Sum(r => r.Width) + 2 &&
             ordered.Zip(ordered.Skip(1)).All(pair => Math.Abs(pair.First.Right - pair.Second.Left) <= 2);
         bool onTaskbar = !screen.WorkingArea.Contains(area) && screen.Bounds.IntersectsWith(area);
-        if (!adjacent || !onTaskbar || !AttachToTaskbar(area)) { Hide(); return; }
+        if (!adjacent || !onTaskbar || !AttachToTaskbar(area)) { UpdateTooltip(); Hide(); return; }
         int height = area.Height;
         GetWindowRect(taskbar, out var parentBounds);
         var bounds = new Rectangle(area.Left - parentBounds.Left, area.Top - parentBounds.Top,
@@ -125,6 +131,14 @@ internal sealed class TrayWidget : Form
                 HoverDetails?.Invoke();
             }
         }
+        bool showName = hovered && !menu.Visible && HoverDetailsEnabled?.Invoke() == false &&
+            Environment.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
+        if (showName && !tooltipVisible)
+        {
+            tooltip.Show("Codex Limit Viewer", this, Width / 2, -8, 5000);
+            tooltipVisible = true;
+        }
+        else if (!showName) UpdateTooltip();
         if (needsPaint) { RenderSurface(); needsPaint = false; }
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }

@@ -9,7 +9,7 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 ## Features
 
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area.
-- **Details on Hover**: Hover over the tray display to see per-bucket usage, reset countdowns (days, hours, minutes), and the last updated timestamp. Turn this off in the right-click menu if you prefer.
+- **Details on Hover**: Hover over the tray display to see per-bucket usage, reset countdowns (days, hours, minutes), and the last updated timestamp in a fading popup. Turn this off in the right-click menu to show a standard tooltip with the app name instead.
 - **Codex and Antigravity CLI Integration**: For Codex, the app uses the executable bundled with the desktop app when available, otherwise a standalone Codex CLI installation. It uses `agy` for Antigravity. It polls every 60 seconds without extracting or storing credentials.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
@@ -36,7 +36,7 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 
 ![Codex Limit Viewer](docs/menu-en.png)
 
-- **Hover**: Open the details popup (enabled by default). It closes after the pointer leaves both the tray display and the popup.
+- **Hover**: Open the details popup (enabled by default). It fades out after the pointer leaves both the tray display and the popup. When disabled, hovering shows the app name in a tooltip.
 - **Left-Click**: Toggle details popup.
 - **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit).
 - **Startup**: Opt-in via the right-click menu (disabled by default).
