@@ -9,7 +9,7 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <AssemblyName>CodexLimitViewer</AssemblyName><Product>Codex Limit Viewer</Product><Title>Codex Limit Viewer</Title><Version>0.1.0</Version><Description>Codex Limit Viewer for Windows 11</Description>
+    <AssemblyName>CodexLimitViewer</AssemblyName><Product>Codex Limit Viewer</Product><Title>Codex Limit Viewer</Title><Version>0.1.1</Version><Description>Codex Limit Viewer for Windows 11</Description>
   </PropertyGroup>
   <ItemGroup><EmbeddedResource Include="English.json" LogicalName="CodexLimitViewer.English.json" /></ItemGroup>
 </Project>

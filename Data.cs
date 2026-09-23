@@ -12,14 +12,39 @@ internal sealed class Preferences
 {
     public string Language { get; set; } = "ja";
     public bool Pinned { get; set; } = false;
-    public bool OpenDetailsOnHover { get; set; } = true;
+    public bool OpenDetailsOnHover { get; set; } = false;
+    public string TaskbarTop { get; set; } = "Codex";
+    public string TaskbarBottom { get; set; } = "Antigravity";
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");
     public static Preferences Load()
     {
-        try { return JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new(); }
+        try
+        {
+            var value = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new();
+            if (!KnownProvider(value.TaskbarTop)) value.TaskbarTop = "Codex";
+            if (!KnownProvider(value.TaskbarBottom) || value.TaskbarBottom == value.TaskbarTop)
+                value.TaskbarBottom = value.TaskbarTop == "Antigravity" ? "Codex" : "Antigravity";
+            return value;
+        }
         catch { return new(); }
+    }
+    public static bool KnownProvider(string? provider) => provider is "Codex" or "Antigravity" or "Claude Code";
+    public void SelectTaskbarProvider(bool top, string provider, bool persist = true)
+    {
+        if (!KnownProvider(provider)) return;
+        if (top)
+        {
+            if (TaskbarBottom == provider) TaskbarBottom = TaskbarTop;
+            TaskbarTop = provider;
+        }
+        else
+        {
+            if (TaskbarTop == provider) TaskbarTop = TaskbarBottom;
+            TaskbarBottom = provider;
+        }
+        if (persist) Save();
     }
     public void Save()
     {

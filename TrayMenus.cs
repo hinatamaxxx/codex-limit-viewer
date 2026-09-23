@@ -10,7 +10,7 @@ internal sealed class TrayContextMenu : ContextMenuStrip
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     internal TrayContextMenu()
     {
-        AutoClose = true;
+        AutoClose = false;
         outsideClicks.Tick += (_, _) => ObservePointer(Cursor.Position, Pressed());
     }
     private static bool Pressed() => (GetAsyncKeyState(1) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0;
@@ -50,6 +50,7 @@ internal sealed class TrayContextMenu : ContextMenuStrip
 
 internal sealed class TraySubMenu : ToolStripDropDownMenu
 {
+    internal TraySubMenu() => AutoClose = false;
     protected override CreateParams CreateParams
     {
         get

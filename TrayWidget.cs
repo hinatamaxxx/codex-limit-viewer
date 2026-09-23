@@ -10,7 +10,7 @@ internal sealed class TrayWidget : Form
     private readonly ContextMenuStrip menu;
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 250 };
     private readonly ToolTip tooltip = new();
-    private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
+    private Reading topReading = new("Codex", [], null), bottomReading = new("Antigravity", [], null);
     private bool needsPaint = true;
     private bool hovered;
     private bool hoverHandled;
@@ -83,9 +83,9 @@ internal sealed class TrayWidget : Form
         return true;
     }
     protected override void OnShown(EventArgs e) { base.OnShown(e); BeginInvoke(() => ShowWindow(Handle, 4)); }
-    internal void UpdateReadings(Reading c, Reading a)
+    internal void UpdateReadings(Reading top, Reading bottom)
     {
-        codex = c; agy = a;
+        topReading = top; bottomReading = bottom;
         needsPaint = true;
         Align(); Invalidate();
     }
@@ -135,7 +135,9 @@ internal sealed class TrayWidget : Form
             Environment.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
         if (showName && !tooltipVisible)
         {
-            tooltip.Show("Codex Limit Viewer", this, Width / 2, -8, 5000);
+            const string appName = "Codex Limit Viewer";
+            int tooltipWidth = TextRenderer.MeasureText(appName, SystemFonts.StatusFont).Width + 8;
+            tooltip.Show(appName, this, (Width - tooltipWidth) / 2, -8, 5000);
             tooltipVisible = true;
         }
         else if (!showName) UpdateTooltip();
@@ -145,7 +147,7 @@ internal sealed class TrayWidget : Form
     protected override void OnPaint(PaintEventArgs e) { }
     private void RenderSurface()
     {
-        using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, codex, agy, hovered);
+        using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, topReading, bottomReading, hovered);
         LayeredSurface.Present(Handle, bitmap, taskbarPosition);
     }
     protected override void Dispose(bool disposing)

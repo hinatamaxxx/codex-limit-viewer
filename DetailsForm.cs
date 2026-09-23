@@ -12,9 +12,11 @@ internal sealed class DetailsForm : Form
     private const int FadeDurationMs = 160;
     private long fadeStarted;
     private double fadeFrom, fadeTo;
+    private bool openedFromHover;
     private readonly Button pin = new(), refresh = new(), hide = new();
     private readonly BufferedPanel list = new() { AutoScroll = true, BackColor = Color.FromArgb(32, 32, 36) };
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
+    private Reading? claude;
     private bool expanded, refreshing, moving;
     private Point dragOrigin, windowOrigin;
     private Size target;
@@ -52,7 +54,7 @@ internal sealed class DetailsForm : Form
         ClampPosition();
         MakeButton(pin, L.T("固定"), L.T("常時表示を切り替える"), () => SetPinned(!prefs.Pinned));
         MakeButton(refresh, "↻", L.T("CodexとAntigravityを更新"), () => RefreshRequested?.Invoke());
-        MakeButton(hide, "×", L.T("通知領域に収納"), Dismiss);
+        MakeButton(hide, "×", L.T("通知領域に収納"), CloseDetails);
         Controls.Add(list);
         clock.Tick += (_, _) =>
         {
@@ -66,10 +68,10 @@ internal sealed class DetailsForm : Form
         };
         clock.Start();
         fade.Tick += (_, _) => AdvanceFade();
-        Deactivate += (_, _) => { if (!prefs.Pinned) Dismiss(); };
+        Deactivate += (_, _) => { if (!prefs.Pinned) CloseDetails(); };
         KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.Escape) { if (expanded && prefs.Pinned) Expand(false); else Dismiss(); }
+            if (e.KeyCode == Keys.Escape) { if (expanded && prefs.Pinned) Expand(false); else CloseDetails(); }
             if (e.KeyCode is Keys.Enter or Keys.Space) Expand(!expanded);
         };
         Resize += (_, _) => { RoundWindow(); LayoutButtons(); PositionAtTray(); Invalidate(); };
@@ -108,14 +110,15 @@ internal sealed class DetailsForm : Form
     {
         prefs.Pinned = value; prefs.Save(); LayoutButtons(); Invalidate();
     }
-    internal void UpdateReadings(Reading c, Reading a, bool busy)
+    internal void UpdateReadings(Reading c, Reading a, Reading? cl, bool busy)
     {
-        codex = c; agy = a; refreshing = busy;
+        codex = c; agy = a; claude = cl; refreshing = busy;
         if (expanded) RebuildRows();
         Invalidate();
     }
-    internal void Reveal(bool nearTray = false)
+    internal void Reveal(bool nearTray = false, bool fromHover = false)
     {
+        openedFromHover = fromHover;
         PositionAtTray();
         Expand(true, false); PositionAtTray();
         if (!Visible) { Opacity = 0; Show(); }
@@ -123,6 +126,16 @@ internal sealed class DetailsForm : Form
         FadeTo(1);
     }
     internal bool IsDismissing => fade.Enabled && fadeTo == 0;
+    internal void CloseDetails()
+    {
+        if (openedFromHover) Dismiss(); else HideImmediately();
+    }
+    internal void HideImmediately()
+    {
+        fade.Stop();
+        if (Visible) Hide();
+        Opacity = 1;
+    }
     internal void Dismiss()
     {
         if (Visible && !IsDismissing) FadeTo(0);
@@ -147,9 +160,10 @@ internal sealed class DetailsForm : Form
     internal void Expand(bool value, bool animate = true)
     {
         expanded = value;
-        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0);
+        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0);
+        int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0);
         int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(258 + 70 * (codex.Quotas.Count + agy.Quotas.Count) + 20 * missing, 300, 720));
+            Math.Clamp(258 + 70 * count + 20 * missing + (claude == null ? 0 : 50), 300, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
         ClientSize = target; ClampPosition();
@@ -165,7 +179,7 @@ internal sealed class DetailsForm : Form
     {
         if (keyData == Keys.Escape)
         {
-            if (expanded && prefs.Pinned) Expand(false); else Dismiss();
+            if (expanded && prefs.Pinned) Expand(false); else CloseDetails();
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);
@@ -193,18 +207,18 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, cStale = codex.Stale, aStale = agy.Stale });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
         int y = 0;
-        foreach (var reading in new[] { codex, agy })
+        foreach (var reading in new[] { codex, agy, claude }.Where(r => r != null).Cast<Reading>())
         {
             var color = reading.Provider == "Codex" ? Mint : Violet;
             AddLabel(reading.Provider, new Rectangle(8, y, 210, 25), color, 12);
-            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Provider == "Codex" ? reading.Source ?? "Codex" : L.T("agy CLI経由");
+            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("agy CLI経由");
             AddLabel(status, new Rectangle(232, y, 185, 28), Muted, 11, ellipsis: false);
             y += 36;
             if (reading.Quotas.Count == 0)

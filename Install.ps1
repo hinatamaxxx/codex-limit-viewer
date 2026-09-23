@@ -11,5 +11,5 @@ $shortcut = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Prog
 $shortcut.TargetPath = $exe
 $shortcut.WorkingDirectory = $target
 $shortcut.Save()
-Start-Process -FilePath $exe -WindowStyle Hidden
+Start-Process -FilePath $exe
 Write-Output "Installed: $exe"

@@ -9,7 +9,13 @@ internal static class Verification
         var results = new List<string>();
         try
         {
-            Check(new Preferences().OpenDetailsOnHover, "Hover details defaults on", results);
+            Check(!new Preferences().OpenDetailsOnHover, "Hover details defaults off", results);
+            var display = new Preferences();
+            Check(display.TaskbarTop == "Codex" && display.TaskbarBottom == "Antigravity", "Taskbar defaults to two providers", results);
+            display.SelectTaskbarProvider(false, "Claude Code", persist: false);
+            Check(display.TaskbarTop == "Codex" && display.TaskbarBottom == "Claude Code", "Taskbar row can show Claude Code", results);
+            display.SelectTaskbarProvider(true, "Claude Code", persist: false);
+            Check(display.TaskbarTop == "Claude Code" && display.TaskbarBottom == "Codex", "Selecting the other row swaps providers", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "リセットまで 4日 4時間 0分", "Countdown 100 hours uses days", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(24)) == "リセットまで 1日 0時間 0分", "Countdown day boundary", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromMinutes(1439)) == "リセットまで 23時間 59分", "Countdown below one day", results);
@@ -39,6 +45,16 @@ internal static class Verification
             var a = QuotaParser.Antigravity(agy.RootElement, DateTimeOffset.UtcNow.AddMinutes(-11));
             Check(a.Quotas.Count == 2 && Math.Abs(a.Quotas[0].Remaining - 93.78) < .001 && a.Quotas[1].Remaining == 0, "AGY percentage and invalid data", results);
             Check(a.Stale && !c.Stale && (c with { Error = "offline" }).Stale, "Stale and failed refresh state", results);
+            using var claudeData = JsonDocument.Parse("""{"rate_limits":{"five_hour":{"used_percentage":23.5,"resets_at":2200000000},"seven_day":{"used_percentage":41.2,"resets_at":2200000000}}}""");
+            var claude = ClaudeCodeUsage.Parse(claudeData.RootElement, DateTimeOffset.UtcNow);
+            Check(claude.Quotas.Count == 2 && Math.Abs(claude.Quotas[0].Remaining - 76.5) < .001 && Math.Abs(claude.Quotas[1].Remaining - 58.8) < .001,
+                "Claude Code status line usage becomes remaining quota", results);
+            using var freeClaudeData = JsonDocument.Parse("""{"rate_limits":{}}""");
+            Check(ClaudeCodeUsage.Parse(freeClaudeData.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0,
+                "Missing Claude Code limits never become zero usage", results);
+            using var expiredClaudeData = JsonDocument.Parse("""{"rate_limits":{"five_hour":{"used_percentage":20,"resets_at":1000000000}}}""");
+            Check(ClaudeCodeUsage.Parse(expiredClaudeData.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0,
+                "Expired Claude Code limits are not displayed", results);
             results.Add("All tests passed.");
             var area = new Rectangle(0, 0, 1920, 1040);
             var anchor = new Rectangle(1700, 1045, 24, 24);
@@ -67,14 +83,17 @@ internal static class Verification
         menu.Items.Add("Menu test");
         menu.Show(new Point(0, 0));
         Application.DoEvents();
-        if (!menu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
+        if (menu.AutoClose || submenu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
             (GetWindowLongPtr(submenu.Handle, -20).ToInt64() & 0x80) == 0)
-            throw new Exception("Tray menus must auto-close and never create taskbar buttons.");
+            throw new Exception("Tray menus must stay open for settings changes and never create taskbar buttons.");
         var anchor = new Rectangle(800, 800, 192, 72);
         menu.TrayAnchor = () => anchor;
         menu.Close();
         menu.Show(new Point(10, 10));
         Application.DoEvents();
+        menu.Items[0].PerformClick();
+        Application.DoEvents();
+        if (!menu.Visible) throw new Exception("Clicking a settings item must keep the menu open.");
         var firstPosition = menu.Location;
         menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), false);
         menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), true);
@@ -90,13 +109,16 @@ internal static class Verification
         var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow);
         var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow);
         if (live) { c = Task.Run(() => Providers.Codex(CancellationToken.None)).GetAwaiter().GetResult(); a = Task.Run(() => Providers.AntigravityLive(CancellationToken.None)).GetAwaiter().GetResult(); }
-        f.UpdateReadings(c, a, false);
+        f.UpdateReadings(c, a, null, false);
         f.Show(); f.Expand(false, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-compact.png")); }
         f.Expand(true, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-expanded.png")); }
         using (var hover = ClockTextRenderer.Render(192, 72, 144, c, a, true))
             hover.Save(Path.Combine(AppContext.BaseDirectory, "preview-hover.png"));
+        var exampleClaude = new Reading("Claude Code", [new("5時間", 76.5, DateTimeOffset.UtcNow.AddHours(3))], DateTimeOffset.UtcNow);
+        using (var selectedClaude = ClockTextRenderer.Render(192, 72, 144, c, exampleClaude))
+            selectedClaude.Save(Path.Combine(AppContext.BaseDirectory, "preview-claude.png"));
         f.Hide(); return 0;
     }
 }
