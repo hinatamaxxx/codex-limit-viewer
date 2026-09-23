@@ -7,16 +7,23 @@ namespace CodexLimitViewer;
 internal sealed class TrayWidget : Form
 {
     private readonly NotifyIcon[] slots;
+    private readonly ContextMenuStrip menu;
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 250 };
     private readonly ToolTip tooltip = new();
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private bool needsPaint = true;
     private bool hovered;
+    private bool hoverHandled;
+    private long hoverStarted;
     private Point taskbarPosition;
+    internal bool IsHovered => hovered;
     internal event Action? OpenDetails;
+    internal event Action? HoverDetails;
+    internal Func<bool>? HoverDetailsEnabled;
     internal TrayWidget(NotifyIcon[] slots, ContextMenuStrip menu)
     {
         this.slots = slots;
+        this.menu = menu;
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
@@ -49,6 +56,7 @@ internal sealed class TrayWidget : Form
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string className, string? title);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(Point point);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] private static extern IntPtr GetWindowLongPtr(IntPtr window, int index);
@@ -100,8 +108,23 @@ internal sealed class TrayWidget : Form
         taskbarPosition = bounds.Location;
         if (Bounds != bounds) { Bounds = bounds; needsPaint = true; }
         if (!Visible) { Show(); needsPaint = true; }
-        bool pointerInside = ScreenBounds.Contains(Cursor.Position);
-        if (hovered != pointerInside) { hovered = pointerInside; needsPaint = true; }
+        bool pointerInside = ScreenBounds.Contains(Cursor.Position) && WindowFromPoint(Cursor.Position) == Handle;
+        if (hovered != pointerInside)
+        {
+            hovered = pointerInside;
+            hoverHandled = false;
+            hoverStarted = Environment.TickCount64;
+            needsPaint = true;
+        }
+        if (hovered && !hoverHandled)
+        {
+            if (menu.Visible) hoverHandled = true;
+            else if (Environment.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
+            {
+                hoverHandled = true;
+                HoverDetails?.Invoke();
+            }
+        }
         if (needsPaint) { RenderSurface(); needsPaint = false; }
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }

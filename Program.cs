@@ -39,24 +39,40 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private NotifyIcon? selectedTray;
     private readonly TrayContextMenu menu = new();
     private readonly System.Windows.Forms.Timer poll = new() { Interval = 60000 };
+    private readonly System.Windows.Forms.Timer hoverClose = new() { Interval = 100 };
 
     private readonly CancellationTokenSource stop = new();
     private readonly DetailsForm form;
     private readonly TrayWidget widget;
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
-    private bool busy, closing;
+    private bool busy, closing, hoverOpened;
+    private long outsideSince;
 
     internal TrayApplicationContext()
     {
         form = new(prefs);
         prefs.Pinned = false;
         widget = new(new[] { tray, agyTray }.Concat(extraSlots).ToArray(), menu);
-        widget.OpenDetails += () => { if (form.Visible) form.Hide(); else form.Reveal(true); };
+        widget.OpenDetails += () => { hoverOpened = false; if (form.Visible) form.Hide(); else form.Reveal(true); };
+        widget.HoverDetailsEnabled = () => prefs.OpenDetailsOnHover;
+        widget.HoverDetails += () => { if (!form.Visible) { hoverOpened = true; outsideSince = 0; form.Reveal(true); } };
+        form.VisibleChanged += (_, _) => { if (!form.Visible) { hoverOpened = false; outsideSince = 0; } };
+        menu.Opened += (_, _) => { if (hoverOpened) form.Hide(); };
+        hoverClose.Tick += (_, _) =>
+        {
+            if (!hoverOpened || !form.Visible || prefs.Pinned) return;
+            if (widget.IsHovered || form.Bounds.Contains(Cursor.Position)) { outsideSince = 0; return; }
+            if (outsideSince == 0) outsideSince = Environment.TickCount64;
+            else if (Environment.TickCount64 - outsideSince >= 350) form.Hide();
+        };
         form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         menu.TrayAnchor = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
         form.RefreshRequested += () => _ = Refresh();
-        menu.Items.Add(L.T("パネルを開く"), null, (_, _) => form.Reveal(true));
+        menu.Items.Add(L.T("パネルを開く"), null, (_, _) => { hoverOpened = false; form.Reveal(true); });
         menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => _ = Refresh());
+        var hoverOption = new ToolStripMenuItem(L.T("ホバーで詳細を開く")) { CheckOnClick = true, Checked = prefs.OpenDetailsOnHover };
+        hoverOption.CheckedChanged += (_, _) => { prefs.OpenDetailsOnHover = hoverOption.Checked; prefs.Save(); };
+        menu.Items.Add(hoverOption);
         var startup = new ToolStripMenuItem(L.T("Windows起動時に開始")) { CheckOnClick = true };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key?.GetValue("CodexLimitViewer") != null;
         startup.Click += (_, _) =>
@@ -94,11 +110,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         foreach (var icon in new[] { tray, agyTray })
         {
             icon.MouseDown += (_, _) => selectedTray = icon;
-            icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) { selectedTray = icon; if (form.Visible && !prefs.Pinned) form.Hide(); else form.Reveal(true); } };
+            icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) { selectedTray = icon; hoverOpened = false; if (form.Visible && !prefs.Pinned) form.Hide(); else form.Reveal(true); } };
         }
         poll.Tick += (_, _) => _ = Refresh();
 
         poll.Start();
+        hoverClose.Start();
         if (prefs.Pinned) { form.PositionAtTray(); form.Show(); }
         _ = Refresh();
     }
@@ -129,7 +146,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
     protected override void ExitThreadCore()
     {
-        closing = true; stop.Cancel(); poll.Dispose();
+        closing = true; stop.Cancel(); poll.Dispose(); hoverClose.Dispose();
         tray.Visible = false; agyTray.Visible = false;
         widget.Dispose(); tray.Icon?.Dispose(); tray.Dispose(); agyTray.Icon?.Dispose(); agyTray.Dispose(); menu.Dispose(); form.Dispose();
         foreach (var slot in extraSlots) { slot.Visible = false; slot.Icon?.Dispose(); slot.Dispose(); }

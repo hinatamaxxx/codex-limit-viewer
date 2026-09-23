@@ -92,7 +92,7 @@ internal sealed class DetailsForm : Form
         refresh.SetBounds(Width - 91, 17, 30, 30);
         hide.SetBounds(Width - 55, 17, 30, 30);
         pin.ForeColor = prefs.Pinned ? Mint : Muted;
-        list.SetBounds(20, 85, Math.Max(20, Width - 40), Math.Max(1, Height - 125));
+        list.SetBounds(20, 85, Math.Max(20, Width - 40), Math.Max(1, Height - 90));
     }
     private void RoundWindow()
     {
@@ -117,8 +117,9 @@ internal sealed class DetailsForm : Form
     internal void Expand(bool value, bool animate = true)
     {
         expanded = value;
+        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0);
         int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(330 + 70 * (codex.Quotas.Count + agy.Quotas.Count), 482, 720));
+            Math.Clamp(258 + 70 * (codex.Quotas.Count + agy.Quotas.Count) + 20 * missing, 300, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
         ClientSize = target; ClampPosition();
@@ -172,9 +173,9 @@ internal sealed class DetailsForm : Form
         foreach (var reading in new[] { codex, agy })
         {
             var color = reading.Provider == "Codex" ? Mint : Violet;
-            AddLabel(reading.Provider, new Rectangle(8, y, 230, 25), color, 12);
-            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Provider == "Codex" ? L.T("直接取得") : L.T("CLIで取得");
-            AddLabel(status, new Rectangle(232, y, 160, 28), Muted, 11);
+            AddLabel(reading.Provider, new Rectangle(8, y, 210, 25), color, 12);
+            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Provider == "Codex" ? reading.Source ?? "Codex" : L.T("agy CLI経由");
+            AddLabel(status, new Rectangle(232, y, 185, 28), Muted, 11, ellipsis: false);
             y += 36;
             if (reading.Quotas.Count == 0)
             {
@@ -194,12 +195,12 @@ internal sealed class DetailsForm : Form
             }
             y += 20;
         }
-        list.AutoScrollMinSize = new Size(0, y);
+        list.AutoScrollMinSize = new Size(0, Math.Max(0, y - 20));
         list.ResumeLayout(); list.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
     }
-    private void AddLabel(string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular)
+    private void AddLabel(string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true)
     {
-        list.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = true });
+        list.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis });
     }
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -219,7 +220,7 @@ internal sealed class DetailsForm : Form
         {
             DrawText(g, L.T("使用状況"), 28, 20, 12, Color.White);
             using var divider = new Pen(Color.FromArgb(58, 58, 63)); g.DrawLine(divider, 28, 66, Width - 28, 66);
-            DrawText(g, refreshing ? L.T("使用状況を更新中…") : L.T("Esc で閉じる"), 28, Height - 30, 11, Muted);
+            if (refreshing) DrawText(g, L.T("更新中…"), 130, 20, 10, Muted);
         }
     }
     internal static GraphicsPath Rounded(RectangleF r, float radius)

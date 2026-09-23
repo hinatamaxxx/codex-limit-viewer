@@ -9,8 +9,8 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 ## Features
 
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area.
-- **Detailed Breakdown**: Click the tray icon to view per-bucket usage, reset countdowns (days, hours, minutes), and the last updated timestamp.
-- **Safe CLI Integration**: Polls your installed official CLIs every 60 seconds. The app never accesses or stores your credentials.
+- **Details on Hover**: Hover over the tray display to see per-bucket usage, reset countdowns (days, hours, minutes), and the last updated timestamp. Turn this off in the right-click menu if you prefer.
+- **Codex and Antigravity CLI Integration**: For Codex, the app uses the executable bundled with the desktop app when available, otherwise a standalone Codex CLI installation. It uses `agy` for Antigravity. It polls every 60 seconds without extracting or storing credentials.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
 
@@ -19,7 +19,7 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 ## Getting Started
 
 1. **Prerequisites**:
-   Install and sign in to the official Codex and/or Antigravity CLI (`agy`). CLI tools are not bundled with this application.
+   Install and sign in to Codex in the [ChatGPT desktop app](https://learn.chatgpt.com/docs/windows/windows-app), or install [Codex CLI](https://github.com/openai/codex). The Codex source requires a local `codex.exe`. To display Antigravity quota, also install [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install). This application does not bundle CLI tools.
 2. **Download**:
    Download and extract the latest release ZIP from [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases).
 3. **Install**:
@@ -36,8 +36,9 @@ A sleek, lightweight Windows 11 system tray application that keeps your Codex an
 
 ![Codex Limit Viewer](docs/menu-en.png)
 
+- **Hover**: Open the details popup (enabled by default). It closes after the pointer leaves both the tray display and the popup.
 - **Left-Click**: Toggle details popup.
-- **Right-Click**: Context menu (Refresh Now, Language, Launch at Startup, Exit).
+- **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit).
 - **Startup**: Opt-in via the right-click menu (disabled by default).
 
 ## Customization

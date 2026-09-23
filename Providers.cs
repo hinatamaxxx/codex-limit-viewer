@@ -12,6 +12,7 @@ internal static class Providers
         var ct = timeout.Token;
         string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenAI", "Codex", "bin");
         var exe = Directory.Exists(folder) ? Directory.GetFiles(folder, "codex.exe", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
+        bool desktopApp = exe != null;
         if (exe == null)
         {
             exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator).Select(p => Path.Combine(p, "codex.exe")).FirstOrDefault(File.Exists);
@@ -28,7 +29,10 @@ internal static class Providers
             await ReadResult(proc, 1, ct);
             await proc.StandardInput.WriteLineAsync("""{"method":"initialized","params":{}}""");
             await proc.StandardInput.WriteLineAsync("""{"id":2,"method":"account/rateLimits/read"}""");
-            return QuotaParser.Codex(await ReadResult(proc, 2, ct));
+            return QuotaParser.Codex(await ReadResult(proc, 2, ct)) with
+            {
+                Source = L.T(desktopApp ? "Codexアプリ経由" : "Codex CLI経由")
+            };
         }
         finally
         {

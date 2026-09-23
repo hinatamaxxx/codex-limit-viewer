@@ -9,6 +9,7 @@ internal static class Verification
         var results = new List<string>();
         try
         {
+            Check(new Preferences().OpenDetailsOnHover, "Hover details defaults on", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "リセットまで 4日 4時間 0分", "Countdown 100 hours uses days", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(24)) == "リセットまで 1日 0時間 0分", "Countdown day boundary", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromMinutes(1439)) == "リセットまで 23時間 59分", "Countdown below one day", results);
@@ -16,7 +17,9 @@ internal static class Verification
             L.English = true;
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "Resets in 4d 4h 0m", "English duration", results);
             Check(L.F("取得 {age}", ("age", "09/22 03:00:00")) == "Fetched 09/22 03:00:00", "English timestamp", results);
-            Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel", "English labels", results);
+            Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel" &&
+                L.T("Codexアプリ経由") == "Via Codex app" &&
+                L.T("ホバーで詳細を開く") == "Open details on hover", "English labels", results);
             L.English = false;
             using var codex = JsonDocument.Parse("""{"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":22.5,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":90,"windowDurationMins":10080}},"extra":{"primary":{"usedPercent":15,"windowDurationMins":60}}}}""");
             var c = QuotaParser.Codex(codex.RootElement);

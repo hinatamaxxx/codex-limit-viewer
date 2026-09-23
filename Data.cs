@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace CodexLimitViewer;
 
 internal record Quota(string Label, double Remaining, DateTimeOffset? Reset);
-internal record Reading(string Provider, List<Quota> Quotas, DateTimeOffset? Updated, string? Error = null)
+internal record Reading(string Provider, List<Quota> Quotas, DateTimeOffset? Updated, string? Error = null, string? Source = null)
 {
     public bool Stale => Error != null || Updated == null || DateTimeOffset.UtcNow - Updated > TimeSpan.FromMinutes(10);
     public string Compact => Quotas.Count == 0 ? "—" : $"{Quotas.Min(q => q.Remaining):0.#}%";
@@ -12,6 +12,7 @@ internal sealed class Preferences
 {
     public string Language { get; set; } = "ja";
     public bool Pinned { get; set; } = false;
+    public bool OpenDetailsOnHover { get; set; } = true;
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");
