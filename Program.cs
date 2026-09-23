@@ -52,8 +52,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         prefs.Pinned = false;
         widget = new(new[] { tray, agyTray }.Concat(extraSlots).ToArray(), menu);
         widget.OpenDetails += () => { if (form.Visible) form.Hide(); else form.Reveal(true); };
-        form.TrayBounds = () => widget.Visible ? widget.Bounds : TrayPresentation.GetBounds(selectedTray ?? tray);
-        menu.TrayAnchor = () => widget.Visible ? widget.Bounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
+        form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
+        menu.TrayAnchor = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
         form.RefreshRequested += () => _ = Refresh();
         menu.Items.Add(L.T("パネルを開く"), null, (_, _) => form.Reveal(true));
         menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => _ = Refresh());

@@ -12,6 +12,7 @@ internal sealed class TrayWidget : Form
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private bool needsPaint = true;
     private bool hovered;
+    private Point taskbarPosition;
     internal event Action? OpenDetails;
     internal TrayWidget(NotifyIcon[] slots, ContextMenuStrip menu)
     {
@@ -19,7 +20,7 @@ internal sealed class TrayWidget : Form
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
-        TopMost = true;
+        TopMost = false;
         DoubleBuffered = true;
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Color.FromArgb(35, 35, 35);
@@ -39,32 +40,38 @@ internal sealed class TrayWidget : Form
             return;
         }
         base.WndProc(ref message);
-        if (message.Msg == 0x0202) { OpenDetails?.Invoke(); KeepAboveTaskbar(); }
+        if (message.Msg == 0x0202) OpenDetails?.Invoke();
     }
     protected override CreateParams CreateParams
     {
         get { var p = base.CreateParams; p.ExStyle |= 0x08000000 | 0x80 | 0x80000; return p; }
     }
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
-    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
-    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string className, string? title);
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
-    [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out NativeRect rect, int size);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")] private static extern IntPtr GetWindowLongPtr(IntPtr window, int index);
+    [DllImport("user32.dll")] private static extern IntPtr SetWindowLongPtr(IntPtr window, int index, IntPtr value);
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
-    private static bool ForegroundCovers(Rectangle area)
+    private IntPtr taskbar;
+    internal Rectangle ScreenBounds => RectangleToScreen(ClientRectangle);
+    private bool AttachToTaskbar(Rectangle area)
     {
-        var foreground = GetForegroundWindow();
-        if (foreground == IntPtr.Zero) return false;
-        GetWindowThreadProcessId(foreground, out var process);
-        if (process == Environment.ProcessId) return false;
-        if (DwmGetWindowAttribute(foreground, 9, out var rect, Marshal.SizeOf<NativeRect>()) != 0 &&
-            !GetWindowRect(foreground, out rect)) return false;
-        return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom).IntersectsWith(area);
-    }
-    private void KeepAboveTaskbar()
-    {
-        if (Visible) SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0013); // no move, resize or activation
+        if (taskbar != IntPtr.Zero && IsWindow(taskbar)) return true;
+        taskbar = IntPtr.Zero;
+        var parent = FindWindow("Shell_TrayWnd", null);
+        if (parent == IntPtr.Zero || !GetWindowRect(parent, out var r) ||
+            !Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom).Contains(area)) return false;
+        var style = GetWindowLongPtr(Handle, -16).ToInt64();
+        SetWindowLongPtr(Handle, -16, (IntPtr)((style & ~0x80000000L) | 0x40000000L));
+        if (SetParent(Handle, parent) == IntPtr.Zero)
+        {
+            SetWindowLongPtr(Handle, -16, (IntPtr)style);
+            return false;
+        }
+        taskbar = parent;
+        return true;
     }
     protected override void OnShown(EventArgs e) { base.OnShown(e); BeginInvoke(() => ShowWindow(Handle, 4)); }
     internal void UpdateReadings(Reading c, Reading a)
@@ -85,22 +92,24 @@ internal sealed class TrayWidget : Form
             area.Width <= ordered.Sum(r => r.Width) + 2 &&
             ordered.Zip(ordered.Skip(1)).All(pair => Math.Abs(pair.First.Right - pair.Second.Left) <= 2);
         bool onTaskbar = !screen.WorkingArea.Contains(area) && screen.Bounds.IntersectsWith(area);
-        if (!adjacent || !onTaskbar || ForegroundCovers(area)) { Hide(); return; }
+        if (!adjacent || !onTaskbar || !AttachToTaskbar(area)) { Hide(); return; }
         int height = area.Height;
-        var bounds = new Rectangle(area.Left, area.Top + (area.Height - height) / 2, area.Width, height);
+        GetWindowRect(taskbar, out var parentBounds);
+        var bounds = new Rectangle(area.Left - parentBounds.Left, area.Top - parentBounds.Top,
+            area.Width, height);
+        taskbarPosition = bounds.Location;
         if (Bounds != bounds) { Bounds = bounds; needsPaint = true; }
         if (!Visible) { Show(); needsPaint = true; }
-        bool pointerInside = Bounds.Contains(Cursor.Position);
+        bool pointerInside = ScreenBounds.Contains(Cursor.Position);
         if (hovered != pointerInside) { hovered = pointerInside; needsPaint = true; }
         if (needsPaint) { RenderSurface(); needsPaint = false; }
-        KeepAboveTaskbar();
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }
     protected override void OnPaint(PaintEventArgs e) { }
     private void RenderSurface()
     {
         using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, codex, agy, hovered);
-        LayeredSurface.Present(Handle, bitmap, Location);
+        LayeredSurface.Present(Handle, bitmap, taskbarPosition);
     }
     protected override void Dispose(bool disposing)
     {
