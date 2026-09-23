@@ -92,6 +92,8 @@ internal static class Verification
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-compact.png")); }
         f.Expand(true, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-expanded.png")); }
+        using (var hover = ClockTextRenderer.Render(192, 72, 144, c, a, true))
+            hover.Save(Path.Combine(AppContext.BaseDirectory, "preview-hover.png"));
         f.Hide(); return 0;
     }
 }

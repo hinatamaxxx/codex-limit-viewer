@@ -11,6 +11,7 @@ internal sealed class TrayWidget : Form
     private readonly ToolTip tooltip = new();
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private bool needsPaint = true;
+    private bool hovered;
     internal event Action? OpenDetails;
     internal TrayWidget(NotifyIcon[] slots, ContextMenuStrip menu)
     {
@@ -46,6 +47,21 @@ internal sealed class TrayWidget : Form
     }
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
+    [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out NativeRect rect, int size);
+    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    private static bool ForegroundCovers(Rectangle area)
+    {
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero) return false;
+        GetWindowThreadProcessId(foreground, out var process);
+        if (process == Environment.ProcessId) return false;
+        if (DwmGetWindowAttribute(foreground, 9, out var rect, Marshal.SizeOf<NativeRect>()) != 0 &&
+            !GetWindowRect(foreground, out rect)) return false;
+        return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom).IntersectsWith(area);
+    }
     private void KeepAboveTaskbar()
     {
         if (Visible) SetWindowPos(Handle, (IntPtr)(-1), 0, 0, 0, 0, 0x0013); // no move, resize or activation
@@ -69,11 +85,13 @@ internal sealed class TrayWidget : Form
             area.Width <= ordered.Sum(r => r.Width) + 2 &&
             ordered.Zip(ordered.Skip(1)).All(pair => Math.Abs(pair.First.Right - pair.Second.Left) <= 2);
         bool onTaskbar = !screen.WorkingArea.Contains(area) && screen.Bounds.IntersectsWith(area);
-        if (!adjacent || !onTaskbar) { Hide(); return; }
+        if (!adjacent || !onTaskbar || ForegroundCovers(area)) { Hide(); return; }
         int height = area.Height;
         var bounds = new Rectangle(area.Left, area.Top + (area.Height - height) / 2, area.Width, height);
         if (Bounds != bounds) { Bounds = bounds; needsPaint = true; }
         if (!Visible) { Show(); needsPaint = true; }
+        bool pointerInside = Bounds.Contains(Cursor.Position);
+        if (hovered != pointerInside) { hovered = pointerInside; needsPaint = true; }
         if (needsPaint) { RenderSurface(); needsPaint = false; }
         KeepAboveTaskbar();
     }
@@ -81,7 +99,7 @@ internal sealed class TrayWidget : Form
     protected override void OnPaint(PaintEventArgs e) { }
     private void RenderSurface()
     {
-        using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, codex, agy);
+        using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, codex, agy, hovered);
         LayeredSurface.Present(Handle, bitmap, Location);
     }
     protected override void Dispose(bool disposing)

@@ -8,7 +8,7 @@ namespace CodexLimitViewer;
 
 internal static class ClockTextRenderer
 {
-    internal static Bitmap Render(int width, int height, double dpi, Reading codex, Reading agy)
+    internal static Bitmap Render(int width, int height, double dpi, Reading codex, Reading agy, bool hovered = false)
     {
         double scale = dpi / 96;
         double w = width / scale, h = height / scale;
@@ -19,6 +19,9 @@ internal static class ClockTextRenderer
         using (var dc = visual.RenderOpen())
         {
             dc.DrawRectangle(new M.SolidColorBrush(M.Color.FromArgb(1, 0, 0, 0)), null, new W.Rect(0, 0, w, h));
+            if (hovered)
+                dc.DrawRoundedRectangle(new M.SolidColorBrush(M.Color.FromArgb(26, 255, 255, 255)),
+                    null, new W.Rect(1, 5, w - 2, h - 10), 4, 4);
             const double row = 16;
             // Match the observed Windows 11 clock baselines (17/41 px at 150% DPI).
             double top = (h - 2 * row) / 2 - 4d / 3;
