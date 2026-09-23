@@ -14,6 +14,7 @@ internal sealed class TrayWidget : Form
     private bool needsPaint = true;
     private bool hovered;
     private bool hoverHandled;
+    private bool tooltipVisible;
     private long hoverStarted;
     private Point taskbarPosition;
     internal bool IsHovered => hovered;
@@ -35,8 +36,6 @@ internal sealed class TrayWidget : Form
         AccessibleName = L.T("CodexとAntigravityの残り使用量");
         ContextMenuStrip = menu;
         Cursor = Cursors.Hand;
-        tooltip.ShowAlways = true;
-        tooltip.SetToolTip(this, "Codex Limit Viewer");
         timer.Tick += (_, _) => Align();
         timer.Start();
     }
@@ -92,9 +91,9 @@ internal sealed class TrayWidget : Form
     }
     internal void UpdateTooltip()
     {
-        bool active = !menu.Visible && HoverDetailsEnabled?.Invoke() == false;
-        if (tooltip.Active != active) tooltip.Active = active;
-        if (!active) tooltip.Hide(this);
+        if (!tooltipVisible) return;
+        tooltip.Hide(this);
+        tooltipVisible = false;
     }
     private void Align()
     {
@@ -132,7 +131,16 @@ internal sealed class TrayWidget : Form
                 HoverDetails?.Invoke();
             }
         }
-        UpdateTooltip();
+        bool showName = hovered && !menu.Visible && HoverDetailsEnabled?.Invoke() == false &&
+            Environment.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
+        if (showName && !tooltipVisible)
+        {
+            const string appName = "Codex Limit Viewer";
+            int tooltipWidth = TextRenderer.MeasureText(appName, SystemFonts.StatusFont).Width + 8;
+            tooltip.Show(appName, this, (Width - tooltipWidth) / 2, -8, 5000);
+            tooltipVisible = true;
+        }
+        else if (!showName) UpdateTooltip();
         if (needsPaint) { RenderSurface(); needsPaint = false; }
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }
