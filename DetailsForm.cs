@@ -162,8 +162,10 @@ internal sealed class DetailsForm : Form
         expanded = value;
         int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0);
         int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0);
+        int datedCount = new[] { codex, agy, claude }.Where(r => r != null).Cast<Reading>()
+            .Sum(r => r.Quotas.Count(q => FormatResetDate(q.Reset, DateTimeOffset.Now) != null));
         int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(258 + 70 * count + 20 * missing + (claude == null ? 0 : 50), 300, 720));
+            Math.Clamp(258 + 70 * count + 22 * datedCount + 20 * missing + (claude == null ? 0 : 50), 300, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
         ClientSize = target; ClampPosition();
@@ -207,7 +209,7 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
@@ -228,8 +230,9 @@ internal sealed class DetailsForm : Form
             }
             foreach (var quota in reading.Quotas)
             {
-                var row = new QuotaRow(quota, reading.Stale, color) { Location = new(4, y), Size = new(372, 65) };
-                list.Controls.Add(row); y += 70;
+                var row = new QuotaRow(quota, reading.Stale, color) { Location = new(4, y) };
+                row.Size = new Size(372, row.HasResetDate ? 87 : 65);
+                list.Controls.Add(row); y += row.Height + 5;
             }
             if (reading.Quotas.Count > 0)
             {
@@ -301,23 +304,39 @@ internal sealed class DetailsForm : Form
             ? L.F("リセットまで {t.Days}日 {t.Hours}時間 {t.Minutes}分", ("t.Days", t.Days), ("t.Hours", t.Hours), ("t.Minutes", t.Minutes))
             : L.F("リセットまで {t.Hours}時間 {t.Minutes}分", ("t.Hours", t.Hours), ("t.Minutes", t.Minutes));
     }
+    internal static string? FormatResetDate(DateTimeOffset? reset, DateTimeOffset now)
+    {
+        if (reset == null || reset <= now) return null;
+        var localReset = reset.Value.ToLocalTime();
+        var localNow = now.ToLocalTime();
+        if (localReset.Date <= localNow.Date) return null;
+        var date = L.English
+            ? localReset.ToString(localReset.Year == localNow.Year ? "MMM d, HH:mm" : "MMM d, yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+            : localReset.ToString(localReset.Year == localNow.Year ? "M月d日 HH:mm" : "yyyy年M月d日 HH:mm", System.Globalization.CultureInfo.GetCultureInfo("ja-JP"));
+        return L.F("リセット日 {date}", ("date", date));
+    }
     private sealed class QuotaRow : Control
     {
         private readonly Quota quota;
         private readonly bool stale;
         private readonly Color accent;
         private string countdown;
+        private string? resetDate;
+        internal bool HasResetDate => resetDate != null;
         internal QuotaRow(Quota quota, bool stale, Color accent)
         {
             this.quota = quota; this.stale = stale; this.accent = accent;
             DoubleBuffered = true;
             countdown = FormatCountdown(quota.Reset - DateTimeOffset.UtcNow);
+            resetDate = FormatResetDate(quota.Reset, DateTimeOffset.Now);
         }
         internal void RefreshCountdown()
         {
             var next = FormatCountdown(quota.Reset - DateTimeOffset.UtcNow);
-            if (next == countdown) return;
+            var nextDate = FormatResetDate(quota.Reset, DateTimeOffset.Now);
+            if (next == countdown && nextDate == resetDate) return;
             countdown = next;
+            resetDate = nextDate;
             Invalidate(new Rectangle(0, 28, Width, Height - 28));
         }
         protected override void OnPaint(PaintEventArgs e)
@@ -327,7 +346,8 @@ internal sealed class DetailsForm : Form
             DrawText(g, label, 4, 1, 12, Color.White);
             using var valueFont = new Font("Segoe UI", 12 * DeviceDpi / 96f, FontStyle.Regular, GraphicsUnit.Pixel);
             TextRenderer.DrawText(g, $"{quota.Remaining:0.#}%", valueFont, new Rectangle(284, 0, Width - 284, 26), stale ? Muted : accent, TextFormatFlags.Right | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-            DrawText(g, countdown, 4, 30, 11, Muted);
+            if (resetDate != null) DrawText(g, resetDate, 4, 30, 11, Muted);
+            DrawText(g, countdown, 4, resetDate == null ? 30 : 52, 11, Muted);
         }
     }
 }

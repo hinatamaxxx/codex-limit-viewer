@@ -20,8 +20,18 @@ internal static class Verification
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(24)) == "リセットまで 1日 0時間 0分", "Countdown day boundary", results);
             Check(DetailsForm.FormatCountdown(TimeSpan.FromMinutes(1439)) == "リセットまで 23時間 59分", "Countdown below one day", results);
             Check(DetailsForm.FormatCountdown(null) == "リセット時刻不明" && DetailsForm.FormatCountdown(TimeSpan.Zero) == "リセット時刻経過 · 更新待ち", "Countdown missing and expired", results);
+            var late = DateTime.Today.AddHours(23);
+            var nearMidnight = new DateTimeOffset(late, TimeZoneInfo.Local.GetUtcOffset(late));
+            var nextDayReset = nearMidnight.AddHours(2);
+            Check(DetailsForm.FormatResetDate(nextDayReset, nearMidnight)?.Contains(nextDayReset.ToLocalTime().ToString("M月d日")) == true,
+                "Reset date appears when a short countdown crosses midnight", results);
+            Check(DetailsForm.FormatResetDate(nearMidnight.AddMinutes(30), nearMidnight) == null &&
+                DetailsForm.FormatResetDate(null, nearMidnight) == null,
+                "Same-day and unknown resets keep the compact layout", results);
             L.English = true;
             Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "Resets in 4d 4h 0m", "English duration", results);
+            Check(DetailsForm.FormatResetDate(nextDayReset, nearMidnight)?.StartsWith("Resets ") == true,
+                "English reset date", results);
             Check(L.F("取得 {age}", ("age", "09/22 03:00:00")) == "Fetched 09/22 03:00:00", "English timestamp", results);
             Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel" &&
                 L.T("Codexアプリ経由") == "Via Codex app" &&
@@ -91,9 +101,13 @@ internal static class Verification
         menu.Close();
         menu.Show(new Point(10, 10));
         Application.DoEvents();
+        var cursorBeforeClick = Cursor.Position;
+        Cursor.Position = new Point(menu.Left + 5, menu.Top + 5);
         menu.Items[0].PerformClick();
         Application.DoEvents();
-        if (!menu.Visible) throw new Exception("Clicking a settings item must keep the menu open.");
+        var stayedOpen = menu.Visible;
+        Cursor.Position = cursorBeforeClick;
+        if (!stayedOpen) throw new Exception("Clicking a settings item must keep the menu open.");
         var firstPosition = menu.Location;
         menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), false);
         menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), true);
@@ -106,8 +120,8 @@ internal static class Verification
         if (menu.Location != firstPosition) throw new Exception("Menu position must not depend on click position.");
         menu.Close();
         using var f = new DetailsForm(new Preferences());
-        var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow);
-        var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow);
+        var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow, Source: L.T("Codexアプリ経由"));
+        var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("agy CLI経由"));
         if (live) { c = Task.Run(() => Providers.Codex(CancellationToken.None)).GetAwaiter().GetResult(); a = Task.Run(() => Providers.AntigravityLive(CancellationToken.None)).GetAwaiter().GetResult(); }
         f.UpdateReadings(c, a, null, false);
         f.Show(); f.Expand(false, false); Application.DoEvents();

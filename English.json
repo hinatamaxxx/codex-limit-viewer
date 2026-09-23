@@ -36,6 +36,7 @@
     "パネルを開く":  "Open panel",
     "リセットまで {t.Days}日 {t.Hours}時間 {t.Minutes}分":  "Resets in {t.Days}d {t.Hours}h {t.Minutes}m",
     "リセットまで {t.Hours}時間 {t.Minutes}分":  "Resets in {t.Hours}h {t.Minutes}m",
+    "リセット日 {date}":  "Resets {date}",
     "リセット時刻経過 · 更新待ち":  "Reset time passed · Awaiting update",
     "リセット時刻不明":  "Reset time unknown",
     "固定":  "Pin",

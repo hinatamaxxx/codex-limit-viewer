@@ -10,7 +10,7 @@ A sleek, lightweight Windows 11 system tray application that keeps two selected 
 
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area.
 - **Choose Two Rows**: Select Codex, Antigravity, or Claude Code for the top and bottom rows from the right-click menu. Selecting an item already in the other row swaps them.
-- **Details on Hover**: Off by default. Enable it to see per-bucket usage, reset countdowns (days, hours, minutes), and the last updated timestamp in a fading popup. It starts fading out as soon as the pointer leaves the display and popup. When disabled, a centered standard tooltip shows the app name.
+- **Details on Hover**: Off by default. Enable it to see per-bucket usage, reset countdowns (days, hours, minutes), the reset date for windows that cross into a later day, and the last updated timestamp in a fading popup. It starts fading out as soon as the pointer leaves the display and popup. When disabled, the Windows tooltip shows the app name.
 - **Codex and Antigravity CLI Integration**: For Codex, the app uses the executable bundled with the desktop app when available, otherwise a standalone Codex CLI installation. It uses `agy` for Antigravity. It polls every 60 seconds without extracting or storing credentials. Claude Code usage comes from its official status line.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
@@ -37,7 +37,7 @@ A sleek, lightweight Windows 11 system tray application that keeps two selected 
 
 ![Codex Limit Viewer](docs/menu-en.png)
 
-- **Hover**: Open the details popup (disabled by default). It starts fading out immediately after the pointer leaves both the tray display and the popup. When disabled, a centered tooltip shows the app name.
+- **Hover**: Open the details popup (disabled by default). It starts fading out immediately after the pointer leaves both the tray display and the popup. When disabled, the Windows tooltip shows the app name.
 - **Left-Click**: Toggle the details popup. A popup opened by click closes immediately.
 - **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit). Changing displayed items or toggles keeps the menu open; click outside to dismiss it.
 - **Displayed Services**: After right-clicking, hover over Taskbar display and then Top row or Bottom row to reveal Codex, Antigravity, and Claude Code. Click only the final choice. The taskbar stays at two rows.
