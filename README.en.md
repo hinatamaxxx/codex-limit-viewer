@@ -1,3 +1,5 @@
+<img src="docs/icon.png" alt="" width="96" align="right">
+
 # Codex Limit Viewer
 
 [日本語](README.md)

@@ -39,7 +39,7 @@ internal static class GrokUsage
         var stderr = proc.StandardError.ReadToEndAsync();
         try
         {
-            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.2"}}}""");
+            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.3"}}}""");
             await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"_x.ai/billing","params":{}}""");
             await proc.StandardInput.FlushAsync(timeout.Token);
             while (true)
