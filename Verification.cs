@@ -94,6 +94,11 @@ internal static class Verification
                 claudeLive.Quotas[1].Remaining == 60 && claudeLive.Error == null, "Claude usage API becomes remaining quota", results);
             using var claudeEmpty = JsonDocument.Parse("""{"five_hour":null}""");
             Check(ClaudeUsageApi.Parse(claudeEmpty.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0, "Missing Claude usage never becomes zero", results);
+            var order = new Preferences();
+            order.SelectTaskbarProvider(true, "Claude Code", persist: false);
+            order.SelectTaskbarProvider(false, "Grok", persist: false);
+            var sorted = DetailsForm.OrderedReadings(order, new("Codex", [], null), new("Antigravity", [], null), null, new("Claude Code", [], null), new("Grok", [], null)).Select(r => r.Provider).ToArray();
+            Check(sorted.SequenceEqual(new[] { "Claude Code", "Grok", "Codex", "Antigravity" }), "Details list starts with taskbar providers", results);
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;

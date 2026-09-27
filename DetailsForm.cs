@@ -210,14 +210,14 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale, top = prefs.TaskbarTop, bottom = prefs.TaskbarBottom });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
         int y = 0;
-        foreach (var reading in new[] { codex, agy, claude, grok }.Where(r => r != null).Cast<Reading>())
+        foreach (var reading in OrderedReadings(prefs, codex, agy, claude, grok))
         {
             var color = reading.Provider == "Codex" ? Mint : Violet;
             AddLabel(reading.Provider, new Rectangle(8, y, 210, 25), color, 12);
@@ -246,6 +246,10 @@ internal sealed class DetailsForm : Form
         list.AutoScrollMinSize = new Size(0, Math.Max(0, y - 20));
         list.ResumeLayout(); list.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
     }
+    // Providers shown in the taskbar come first (top row, then bottom row); the rest keep their default order.
+    internal static IEnumerable<Reading> OrderedReadings(Preferences display, params Reading?[] readings) =>
+        readings.Where(r => r != null).Cast<Reading>()
+            .OrderBy(r => r.Provider == display.TaskbarTop ? 0 : r.Provider == display.TaskbarBottom ? 1 : 2);
     private void AddLabel(string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true)
     {
         list.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis });
