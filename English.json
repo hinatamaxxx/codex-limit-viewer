@@ -23,6 +23,7 @@
     "Claude Code CLIのログイン経由":  "Via Claude Code CLI sign-in",
     "Claude Codeの残量は利用できません":  "Claude Code quota is unavailable",
     "Codex CLI経由":  "Via Codex CLI",
+    "このagyでは /usage がモデル呼び出しになるため、残量取得を停止しています":  "Stopped: this agy sends /usage to the model, which would spend quota",
     "agy CLI経由":  "Via agy CLI",
     "Codex 残り {c.Compact}{(c.Stale ? ":  "Codex {c.Compact} remaining{(c.Stale ? ",
     "Codex 残り {codex.Compact}{(codex.Stale ? ":  "Codex {codex.Compact} remaining{(codex.Stale ? ",

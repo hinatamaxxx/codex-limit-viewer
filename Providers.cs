@@ -53,8 +53,11 @@ internal static class Providers
         }
         throw new IOException(L.T("Codexとの接続が終了しました"));
     }
+    // Set once agy answers /usage by calling the model instead of running the command, so we never spend quota by polling.
+    private static bool agyUsageSpendsQuota;
     public static async Task<Reading> AntigravityLive(CancellationToken stop)
     {
+        if (agyUsageSpendsQuota) throw new IOException(L.T("このagyでは /usage がモデル呼び出しになるため、残量取得を停止しています"));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "agy", "bin", "agy.exe");
@@ -76,6 +79,11 @@ internal static class Providers
             await proc.WaitForExitAsync(timeout.Token);
             if (proc.ExitCode != 0) throw new IOException(L.T("agyの残量取得に失敗しました。ログイン状態を確認してください"));
             using var doc = JsonDocument.Parse(await stdout);
+            if (QuotaParser.AgyRanModel(doc.RootElement))
+            {
+                agyUsageSpendsQuota = true;
+                throw new IOException(L.T("このagyでは /usage がモデル呼び出しになるため、残量取得を停止しています"));
+            }
             return QuotaParser.AntigravityCommand(doc.RootElement) with { Source = L.T("agy CLI経由") };
         }
         finally

@@ -40,6 +40,9 @@ internal static class Verification
             using var command = JsonDocument.Parse("""{"status":"SUCCESS","command":{"name":"usage","data":{"groups":[{"buckets":[{"id":"gemini-weekly","remaining_fraction":0.9974,"reset_time":"2026-10-01T00:00:00Z"},{"id":"gemini-5h","remaining_fraction":1}]},{"buckets":[{"id":"3p-weekly","remaining_fraction":0}]}]}}}""");
             var live = QuotaParser.AntigravityCommand(command.RootElement);
             Check(live.Quotas.Count == 3 && Math.Abs(live.Quotas[0].Remaining - 99.74) < .001 && live.Quotas[2].Remaining == 0, "AGY command groups retain precise quotas", results);
+            using var modelReply = JsonDocument.Parse("""{"status":"SUCCESS","response":"","usage":{"total_tokens":12647},"denied_actions":[{"action":"command"}]}""");
+            Check(QuotaParser.AgyRanModel(modelReply.RootElement) && !QuotaParser.AgyRanModel(command.RootElement),
+                "agy replies that ran the model are detected", results);
             using var badCommand = JsonDocument.Parse("""{"status":"ERROR"}""");
             bool rejected = false;
             try { QuotaParser.AntigravityCommand(badCommand.RootElement); } catch (IOException) { rejected = true; }

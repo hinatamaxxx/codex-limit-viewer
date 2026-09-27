@@ -79,6 +79,11 @@ internal static class QuotaParser
             rows.Add(new(prefix + label, Math.Clamp(100 - percent, 0, 100), reset));
         }
     }
+    // A headless reply without the "command" result that spent tokens means agy sent "/usage" to the model as a prompt.
+    public static bool AgyRanModel(JsonElement root) =>
+        root.ValueKind == JsonValueKind.Object && !root.TryGetProperty("command", out _) &&
+        root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object &&
+        usage.TryGetProperty("total_tokens", out var tokens) && tokens.TryGetInt64(out var count) && count > 0;
     public static Reading AntigravityCommand(JsonElement root)
     {
         if (!root.TryGetProperty("status", out var status) || status.GetString() != "SUCCESS" ||
