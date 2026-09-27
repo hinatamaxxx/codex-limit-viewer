@@ -24,7 +24,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 
 1. **Prerequisites**:
    - **Codex**: Install and sign in to Codex in the [ChatGPT desktop app](https://learn.chatgpt.com/docs/windows/windows-app), or install the standalone [Codex CLI](https://github.com/openai/codex). Codex requires a local `codex.exe`.
-   - **Antigravity**: To display Antigravity quota, install the [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install).
+   - **Antigravity**: To display Antigravity quota, install the [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install). Note: with agy 1.2.12, `agy -p /usage` is sometimes sent to the model as a prompt (about 12k tokens per call) instead of running the command. When the app detects this, it stops fetching Antigravity for the session so no quota is wasted.
    - **Claude**: To display Claude quota, install the [Claude Code CLI](https://code.claude.com/docs/en/setup) and sign in with `claude auth login`. This also works if you mainly use Claude Desktop, as long as the CLI is signed in to the same account.
    - **Grok**: To display Grok quota, install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and sign in with `grok login`.
    *Note: This application does not bundle CLI tools.*
