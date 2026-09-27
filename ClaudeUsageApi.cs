@@ -18,8 +18,39 @@ internal static class ClaudeUsageApi
     private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static DateTimeOffset retryAfter = DateTimeOffset.MinValue;
 
+    // The usage endpoint rate-limits frequent polling, so ask at most every few minutes and reuse the last answer in between.
+    internal static readonly TimeSpan MinimumInterval = TimeSpan.FromMinutes(3);
+    private static string CachePath => Path.Combine(Preferences.Folder, "claude-usage-cache.json");
+
+    // Last successful reading (quota numbers only, never credentials), so a restart or a 429 shows grayed values instead of "—".
+    internal static Reading? LoadCache()
+    {
+        try
+        {
+            if (!File.Exists(CachePath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(CachePath));
+            var captured = doc.RootElement.TryGetProperty("captured_at", out var t) && t.TryGetInt64(out var ms)
+                ? DateTimeOffset.FromUnixTimeMilliseconds(ms) : DateTimeOffset.MinValue;
+            if (!doc.RootElement.TryGetProperty("usage", out var usage)) return null;
+            var reading = Parse(usage, captured);
+            return reading.Quotas.Count > 0 ? reading : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentOutOfRangeException) { return null; }
+    }
+
+    private static void SaveCache(JsonElement usage, DateTimeOffset captured)
+    {
+        try
+        {
+            Directory.CreateDirectory(Preferences.Folder);
+            File.WriteAllText(CachePath, JsonSerializer.Serialize(new { captured_at = captured.ToUnixTimeMilliseconds(), usage }));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
     internal static async Task<Reading> ReadLive(CancellationToken stop)
     {
+        if (LoadCache() is { } cached && DateTimeOffset.UtcNow - cached.Updated < MinimumInterval) return cached;
         if (DateTimeOffset.UtcNow < retryAfter) throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
         var token = ReadToken() ?? throw new IOException(L.T("Claude Code CLIでログインしてください"));
         // The CLI only renews its sign-in when it calls the model, so an idle CLI leaves the token expired.
@@ -34,7 +65,10 @@ internal static class ClaudeUsageApi
             throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         if (!response.IsSuccessStatusCode) throw new IOException(L.T("Claudeの使用状況を取得できません"));
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(stop));
-        return Parse(doc.RootElement, DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        var reading = Parse(doc.RootElement, now);
+        if (reading.Quotas.Count > 0) SaveCache(doc.RootElement, now);
+        return reading;
     }
 
     private static async Task<HttpResponseMessage> SendUsage(string access, CancellationToken stop)

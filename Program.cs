@@ -55,7 +55,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly DetailsForm form;
     private readonly TrayWidget widget;
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
-    private Reading? claude;
+    private Reading? claude = ClaudeUsageApi.LoadCache();
     private Reading grok = new("Grok", [], null);
     private bool busy, closing, hoverOpened;
 
