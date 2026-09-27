@@ -22,6 +22,7 @@ internal static class Verification
             Check(DetailsForm.FormatReset(noon.AddHours(4).AddMinutes(7), noon) == "今日 16:07 にリセット（あと4時間7分）", "Same-day reset shows today and time left", results);
             Check(DetailsForm.FormatReset(noon.AddHours(21), noon) == "明日 9:00 にリセット（あと21時間0分）", "Next-day reset shows tomorrow", results);
             Check(DetailsForm.FormatReset(noon.AddDays(6).AddHours(6), noon) == "10月3日(土) 18:00 にリセット（あと6日6時間）", "Later reset shows date and weekday", results);
+            Check(DetailsForm.FormatReset(noon.AddHours(6).AddMilliseconds(-100), noon) == "今日 18:00 にリセット（あと6時間0分）", "Reset a moment before the hour shows the hour", results);
             Check(DetailsForm.FormatReset(noon.AddSeconds(20), noon) == "今日 12:00 にリセット（あと1分）", "Under a minute never shows zero", results);
             Check(DetailsForm.FormatReset(null, noon) == "リセット時刻不明" && DetailsForm.FormatReset(noon, noon) == "リセット時刻経過 · 更新待ち", "Reset missing and expired", results);
             L.English = true;
@@ -85,6 +86,20 @@ internal static class Verification
             var claudeLive = ClaudeUsageApi.Parse(claudeApi.RootElement, DateTimeOffset.UtcNow);
             Check(claudeLive.Quotas.Count == 2 && claudeLive.Quotas[0].Remaining == 87.5 && claudeLive.Quotas[1].Label == "週間" &&
                 claudeLive.Quotas[1].Remaining == 60 && claudeLive.Error == null, "Claude usage API becomes remaining quota", results);
+            var stored = """{"claudeAiOauth":{"accessToken":"old","refreshToken":"r1","expiresAt":1000,"refreshTokenExpiresAt":2000,"scopes":["user:inference"],"subscriptionType":"pro","rateLimitTier":"default_claude_ai"},"other":1}""";
+            using var renewal = JsonDocument.Parse("""{"access_token":"new","refresh_token":"r2","expires_in":28800,"refresh_token_expires_in":2592000,"scope":"user:inference user:profile"}""");
+            var renewedAt = new DateTimeOffset(2026, 9, 28, 0, 0, 0, TimeSpan.Zero);
+            var renewedJson = ClaudeUsageApi.ApplyRenewal(stored, renewal.RootElement, renewedAt);
+            var renewed = ClaudeUsageApi.ParseToken(renewedJson);
+            Check(renewed is { Access: "new", Refresh: "r2" } && renewed.Value.Expires == renewedAt.AddHours(8) && renewed.Value.Scopes.Length == 2 &&
+                renewedJson.Contains("\"subscriptionType\":\"pro\"") && renewedJson.Contains("\"other\":1") &&
+                renewedJson.Contains(renewedAt.AddDays(30).ToUnixTimeMilliseconds().ToString()),
+                "Claude sign-in renewal keeps CLI fields and rotates tokens", results);
+            using var renewalWithoutRotation = JsonDocument.Parse("""{"access_token":"new","expires_in":60}""");
+            Check(ClaudeUsageApi.ParseToken(ClaudeUsageApi.ApplyRenewal(stored, renewalWithoutRotation.RootElement, renewedAt))?.Refresh == "r1",
+                "Claude renewal without a new refresh token keeps the old one", results);
+            Check(ClaudeUsageApi.ParseToken("not json") == null && ClaudeUsageApi.ParseToken("""{"claudeAiOauth":{}}""") == null,
+                "Invalid Claude sign-in is ignored", results);
             using var claudeEmpty = JsonDocument.Parse("""{"five_hour":null}""");
             Check(ClaudeUsageApi.Parse(claudeEmpty.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0, "Missing Claude usage never becomes zero", results);
             var order = new Preferences();
@@ -92,6 +107,11 @@ internal static class Verification
             order.SelectTaskbarProvider(false, "Grok", persist: false);
             var sorted = DetailsForm.OrderedReadings(order, new("Codex", [], null), new("Antigravity", [], null), null, new("Claude Code", [], null), new("Grok", [], null)).Select(r => r.Provider).ToArray();
             Check(sorted.SequenceEqual(new[] { "Claude Code", "Grok", "Codex", "Antigravity" }), "Details list starts with taskbar providers", results);
+            Check(ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("5時間", 20.4, null), new("週間", 79.6, null)], DateTimeOffset.UtcNow)) == "80%(20%)",
+                "Claude Code taskbar row shows weekly and 5-hour quota", results);
+            Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)) == "41%" &&
+                ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("週間", 71, null)], DateTimeOffset.UtcNow)) == "71%",
+                "Other providers keep a single taskbar value", results);
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;
@@ -148,16 +168,16 @@ internal static class Verification
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-compact.png")); }
         f.Expand(true, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-expanded.png")); }
-        using (var hover = ClockTextRenderer.Render(192, 72, 144, c, a, true))
+        using (var hover = ClockTextRenderer.Render(240, 72, 144, c, a, true))
             hover.Save(Path.Combine(AppContext.BaseDirectory, "preview-hover.png"));
-        var exampleClaude = new Reading("Claude Code", [new("5時間", 76.5, DateTimeOffset.UtcNow.AddHours(3))], DateTimeOffset.UtcNow);
-        using (var selectedClaude = ClockTextRenderer.Render(192, 72, 144, c, exampleClaude))
+        var exampleClaude = new Reading("Claude Code", [new("5時間", 41, DateTimeOffset.UtcNow.AddHours(3)), new("週間", 71, DateTimeOffset.UtcNow.AddDays(5))], DateTimeOffset.UtcNow);
+        using (var selectedClaude = ClockTextRenderer.Render(240, 72, 144, c, exampleClaude))
             selectedClaude.Save(Path.Combine(AppContext.BaseDirectory, "preview-claude.png"));
         var exampleGrok = new Reading("Grok", [new("週間", 73, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("Grok CLI経由"));
         f.UpdateReadings(c, a, null, exampleGrok, false);
         f.Expand(true, false); Application.DoEvents();
         using (var grokDetails = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(grokDetails, f.ClientRectangle); grokDetails.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-details.png")); }
-        using (var selectedGrok = ClockTextRenderer.Render(192, 72, 144, c, exampleGrok))
+        using (var selectedGrok = ClockTextRenderer.Render(240, 72, 144, c, exampleGrok))
             selectedGrok.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-taskbar.png"));
         f.Hide(); return 0;
     }

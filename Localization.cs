@@ -27,7 +27,7 @@ internal static class TooltipText
     {
         var stale = reading.Stale ? " (" + L.T("前回の値") + ")" : "";
         return L.English
-            ? $"{reading.Provider} {reading.Compact} remaining{stale}\nClick for details"
-            : $"{reading.Provider} 残り {reading.Compact}{stale}\nクリックで詳細";
+            ? $"{reading.Provider} {ClockTextRenderer.TaskbarValue(reading)} remaining{stale}\nClick for details"
+            : $"{reading.Provider} 残り {ClockTextRenderer.TaskbarValue(reading)}{stale}\nクリックで詳細";
     }
 }

@@ -13,7 +13,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area without interrupting your work.
 - **Choose Two Rows**: Select Codex, Antigravity, Claude Code, or Grok for the top and bottom rows from the right-click menu. Selecting an item already in the other row automatically swaps them.
 - **Details on Hover**: Off by default. When enabled, hovering displays per-bucket quota, the reset date and time (today, tomorrow, or weekday and date) with the time left, and the last updated timestamp in a smooth fade popup. It fades out as soon as the pointer leaves both the display and popup. When disabled, a centered tooltip shows the app name. The details popup lists the services shown in the taskbar rows first.
-- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds. Claude quota is fetched every 60 seconds using your [Claude Code CLI](https://code.claude.com/docs/en/setup) sign-in. The app never stores or transmits credentials, except for sending the Claude sign-in token to Anthropic’s API.
+- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds. Claude quota is fetched every 60 seconds using your [Claude Code CLI](https://code.claude.com/docs/en/setup) sign-in. The app never stores or transmits credentials, except for sending the Claude sign-in token to Anthropic and renewing the CLI sign-in when it expires.
 - **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`) in the details popup. Choose Grok for either taskbar row in the right-click menu.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
@@ -52,7 +52,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 
 ## Claude Code Integration
 
-After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every 60 seconds and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to api.anthropic.com and is never stored or logged by this app. When the sign-in expires, the app lets the CLI renew it by running `claude auth status`.
+After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every 60 seconds and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to Anthropic and is never stored elsewhere or logged by this app. Because the CLI only renews its sign-in when it calls the model, the app renews an expired sign-in (about every 8 hours) the same way the CLI does and writes it back to the CLI credentials file, keeping all other fields and preferring the CLI’s own renewal if it happened first. The taskbar row reads like “Claude Code 80%(20%)”: weekly remaining, with the 5-hour remaining in parentheses.
 
 ```powershell
 claude auth login
@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
 - License: [MIT License](LICENSE)
 - Codex with GPT-6 Sol (reasoning effort: Medium) was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
-- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.6 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.
+- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.7 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.

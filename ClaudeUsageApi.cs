@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
@@ -14,70 +13,107 @@ internal static class ClaudeUsageApi
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
     private static string CredentialsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", ".credentials.json");
 
+    // Same endpoint and client as the Claude Code CLI (TOKEN_URL / CLIENT_ID in its OAuth config).
+    private const string TokenUrl = "https://platform.claude.com/v1/oauth/token";
+    private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+    private static DateTimeOffset retryAfter = DateTimeOffset.MinValue;
+
     internal static async Task<Reading> ReadLive(CancellationToken stop)
     {
-        var token = ReadToken();
-        if (token == null) throw new IOException(L.T("Claude Code CLIでログインしてください"));
-        if (token.Value.Expires <= DateTimeOffset.UtcNow.AddMinutes(1))
+        if (DateTimeOffset.UtcNow < retryAfter) throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
+        var token = ReadToken() ?? throw new IOException(L.T("Claude Code CLIでログインしてください"));
+        // The CLI only renews its sign-in when it calls the model, so an idle CLI leaves the token expired.
+        if (token.Expires <= DateTimeOffset.UtcNow.AddMinutes(5)) token = await Renew(token, stop);
+        using var response = await SendUsage(token.Access, stop);
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
-            // The CLI renews its own sign-in; running a read-only command lets it do so without us touching the refresh token.
-            await RunCliStatus(stop);
-            token = ReadToken();
-            if (token == null || token.Value.Expires <= DateTimeOffset.UtcNow)
-                throw new IOException(L.T("Claude Code CLIを一度起動してログインを更新してください"));
+            retryAfter = DateTimeOffset.UtcNow + (response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(5));
+            throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
         }
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/api/oauth/usage");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value.Access);
-        request.Headers.Add("anthropic-beta", "oauth-2025-04-20");
-        request.Headers.UserAgent.ParseAdd("CodexLimitViewer/" + typeof(ClaudeUsageApi).Assembly.GetName().Version?.ToString(3));
-        using var response = await Http.SendAsync(request, stop);
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            throw new IOException(L.T("Claude Code CLIを一度起動してログインを更新してください"));
+            throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         if (!response.IsSuccessStatusCode) throw new IOException(L.T("Claudeの使用状況を取得できません"));
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(stop));
         return Parse(doc.RootElement, DateTimeOffset.UtcNow);
     }
 
-    private static (string Access, DateTimeOffset Expires)? ReadToken()
+    private static async Task<HttpResponseMessage> SendUsage(string access, CancellationToken stop)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/api/oauth/usage");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        request.Headers.Add("anthropic-beta", "oauth-2025-04-20");
+        request.Headers.UserAgent.ParseAdd("CodexLimitViewer/" + typeof(ClaudeUsageApi).Assembly.GetName().Version?.ToString(3));
+        return await Http.SendAsync(request, stop);
+    }
+
+    internal readonly record struct Token(string Access, string? Refresh, DateTimeOffset Expires, string[] Scopes);
+
+    private static Token? ReadToken()
+    {
+        try { return File.Exists(CredentialsPath) ? ParseToken(File.ReadAllText(CredentialsPath)) : null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    internal static Token? ParseToken(string json)
     {
         try
         {
-            if (!File.Exists(CredentialsPath)) return null;
-            using var doc = JsonDocument.Parse(File.ReadAllText(CredentialsPath));
-            if (!doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth) || oauth.ValueKind != JsonValueKind.Object ||
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                !doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth) || oauth.ValueKind != JsonValueKind.Object ||
                 !oauth.TryGetProperty("accessToken", out var access) || access.ValueKind != JsonValueKind.String) return null;
             var expires = oauth.TryGetProperty("expiresAt", out var e) && e.TryGetInt64(out var ms)
                 ? DateTimeOffset.FromUnixTimeMilliseconds(ms) : DateTimeOffset.MaxValue;
-            return (access.GetString()!, expires);
+            var refresh = oauth.TryGetProperty("refreshToken", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
+            var scopes = oauth.TryGetProperty("scopes", out var sc) && sc.ValueKind == JsonValueKind.Array
+                ? sc.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToArray() : [];
+            return new Token(access.GetString()!, refresh, expires, scopes);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentOutOfRangeException) { return null; }
+        catch (Exception e) when (e is JsonException or ArgumentOutOfRangeException) { return null; }
     }
 
-    private static async Task RunCliStatus(CancellationToken stop)
+    // Renews the CLI sign-in the way the CLI does and writes it back, so the CLI keeps working with the rotated refresh token.
+    private static async Task<Token> Renew(Token token, CancellationToken stop)
     {
-        var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "bin", "claude.exe");
-        if (!File.Exists(exe))
-            exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
-                .Select(p => Path.Combine(p, "claude.exe")).FirstOrDefault(File.Exists) ?? "";
-        if (exe == "") return;
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
-        timeout.CancelAfter(TimeSpan.FromSeconds(20));
-        var psi = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        psi.ArgumentList.Add("auth");
-        psi.ArgumentList.Add("status");
-        using var proc = Process.Start(psi);
-        if (proc == null) return;
-        proc.StandardInput.Close();
-        var output = proc.StandardOutput.ReadToEndAsync();
-        var errors = proc.StandardError.ReadToEndAsync();
-        try { await proc.WaitForExitAsync(timeout.Token); }
-        catch (OperationCanceledException) { }
-        finally
+        if (token.Refresh == null) throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
+        var body = new Dictionary<string, string> { ["grant_type"] = "refresh_token", ["refresh_token"] = token.Refresh, ["client_id"] = ClientId };
+        if (token.Scopes.Length > 0) body["scope"] = string.Join(' ', token.Scopes);
+        using var response = await Http.PostAsync(TokenUrl, new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json"), stop);
+        if (!response.IsSuccessStatusCode)
         {
-            if (!proc.HasExited) proc.Kill(true);
-            await proc.WaitForExitAsync(CancellationToken.None);
-            await Task.WhenAll(output, errors);
+            // Another process (the CLI) may have rotated the refresh token first; use its fresh sign-in if so.
+            if (ReadToken() is { } latest && latest.Expires > DateTimeOffset.UtcNow.AddMinutes(1)) return latest;
+            throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         }
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(stop));
+        var now = DateTimeOffset.UtcNow;
+        var json = File.ReadAllText(CredentialsPath);
+        if (ParseToken(json) is { } current && current.Refresh != token.Refresh && current.Expires > now.AddMinutes(1)) return current;
+        var updated = ApplyRenewal(json, doc.RootElement, now);
+        var temp = CredentialsPath + ".codex-limit-viewer.tmp";
+        File.WriteAllText(temp, updated, new System.Text.UTF8Encoding(false));
+        File.Move(temp, CredentialsPath, overwrite: true);
+        return ParseToken(updated) ?? throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
+    }
+
+    // Updates only the renewed fields and keeps everything else the CLI stored.
+    internal static string ApplyRenewal(string credentials, JsonElement renewal, DateTimeOffset now)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(credentials)!.AsObject();
+        var oauth = root["claudeAiOauth"]!.AsObject();
+        oauth["accessToken"] = renewal.GetProperty("access_token").GetString();
+        if (renewal.TryGetProperty("refresh_token", out var refresh) && refresh.ValueKind == JsonValueKind.String)
+            oauth["refreshToken"] = refresh.GetString();
+        oauth["expiresAt"] = (now + TimeSpan.FromSeconds(renewal.GetProperty("expires_in").GetDouble())).ToUnixTimeMilliseconds();
+        if (renewal.TryGetProperty("refresh_token_expires_in", out var life) && life.TryGetDouble(out var seconds))
+            oauth["refreshTokenExpiresAt"] = (now + TimeSpan.FromSeconds(seconds)).ToUnixTimeMilliseconds();
+        if (renewal.TryGetProperty("scope", out var scope) && scope.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(scope.GetString()))
+        {
+            var scopes = new System.Text.Json.Nodes.JsonArray();
+            foreach (var item in scope.GetString()!.Split(' ', StringSplitOptions.RemoveEmptyEntries)) scopes.Add(item);
+            oauth["scopes"] = scopes;
+        }
+        return root.ToJsonString();
     }
 
     internal static Reading Parse(JsonElement root, DateTimeOffset captured)

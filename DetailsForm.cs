@@ -304,7 +304,8 @@ internal sealed class DetailsForm : Form
         if (reset == null) return L.T("リセット時刻不明");
         var left = reset.Value - now;
         if (left <= TimeSpan.Zero) return L.T("リセット時刻経過 · 更新待ち");
-        var at = reset.Value.ToLocalTime();
+        // Services report resets like 17:59:59.9; round to the minute so it reads 18:00 as the Claude app does.
+        var at = new DateTimeOffset((reset.Value.UtcTicks + TimeSpan.TicksPerMinute / 2) / TimeSpan.TicksPerMinute * TimeSpan.TicksPerMinute, TimeSpan.Zero).ToLocalTime();
         var today = now.ToLocalTime().Date;
         var ja = System.Globalization.CultureInfo.GetCultureInfo("ja-JP");
         var en = System.Globalization.CultureInfo.InvariantCulture;
@@ -312,7 +313,7 @@ internal sealed class DetailsForm : Form
             : at.Date == today.AddDays(1) ? L.T("明日")
             : L.English ? at.ToString(at.Year == today.Year ? "ddd, MMM d" : "ddd, MMM d, yyyy", en)
             : at.ToString(at.Year == today.Year ? "M月d日(ddd)" : "yyyy年M月d日(ddd)", ja);
-        return L.F("{day} {time} にリセット（あと{left}）", ("day", day), ("time", at.ToString("H:mm", en)), ("left", FormatRemaining(left)));
+        return L.F("{day} {time} にリセット（あと{left}）", ("day", day), ("time", at.ToString("H:mm", en)), ("left", FormatRemaining(at > now ? at - now : left)));
     }
     internal static string FormatRemaining(TimeSpan t) =>
         t.Days > 0 ? L.F("{d}日{h}時間", ("d", t.Days), ("h", t.Hours))

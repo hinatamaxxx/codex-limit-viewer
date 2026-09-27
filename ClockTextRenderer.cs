@@ -31,13 +31,16 @@ internal static class ClockTextRenderer
             {
                 var label = Text(reading.Provider, M.Brushes.White);
                 label.SetFontWeight(W.FontWeights.Normal);
-                var value = Text(reading.Compact, reading.Stale ? new M.SolidColorBrush(M.Color.FromRgb(190, 195, 207)) : M.Brushes.White);
-                dc.DrawText(label, new W.Point(6, Math.Round((y + (row - label.Height) / 2) * scale) / scale));
-                dc.DrawText(value, new W.Point(Math.Round((w - 6 - value.Width) * scale) / scale,
-                    Math.Round((y + (row - value.Height) / 2) * scale) / scale));
+                dc.DrawText(label, new W.Point(6, Snap(y + (row - label.Height) / 2)));
+                M.Brush valueBrush = reading.Stale ? new M.SolidColorBrush(M.Color.FromRgb(190, 195, 207)) : M.Brushes.White;
+                double right = w - 6;
+                // Claude Code shows "weekly%(5-hour%)", e.g. "80%(20%)".
+                var value = Text(TaskbarValue(reading), valueBrush);
+                dc.DrawText(value, new W.Point(Snap(right - value.Width), Snap(y + (row - value.Height) / 2)));
             }
-            M.FormattedText Text(string text, M.Brush brush) => new(text, CultureInfo.CurrentUICulture,
-                W.FlowDirection.LeftToRight, typeface, 12, brush, null, M.TextFormattingMode.Display, scale);
+            double Snap(double value) => Math.Round(value * scale) / scale;
+            M.FormattedText Text(string text, M.Brush brush, double size = 12) => new(text, CultureInfo.CurrentUICulture,
+                W.FlowDirection.LeftToRight, typeface, size, brush, null, M.TextFormattingMode.Display, scale);
         }
         var target = new I.RenderTargetBitmap(width, height, dpi, dpi, M.PixelFormats.Pbgra32);
         target.Render(visual);
@@ -46,5 +49,13 @@ internal static class ClockTextRenderer
         try { target.CopyPixels(W.Int32Rect.Empty, data.Scan0, data.Stride * height, data.Stride); }
         finally { bitmap.UnlockBits(data); }
         return bitmap;
+    }
+
+    internal static string TaskbarValue(Reading reading)
+    {
+        if (reading.Provider != "Claude Code") return reading.Compact;
+        var five = reading.Quotas.FirstOrDefault(q => q.Label == "5時間");
+        var week = reading.Quotas.FirstOrDefault(q => q.Label == "週間");
+        return five != null && week != null ? $"{week.Remaining:0}%({five.Remaining:0}%)" : reading.Compact;
     }
 }
