@@ -24,7 +24,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 
 1. **事前準備**:
    - **Codex**: [ChatGPTデスクトップアプリ](https://learn.chatgpt.com/docs/windows/windows-app)のCodex機能、または単独の [Codex CLI](https://github.com/openai/codex) をインストールしてログインします。Codex側はローカルに`codex.exe`がある構成で動作します。
-   - **Antigravity**: 残量を表示する場合は [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install) も必要です。
+   - **Antigravity**: 残量を表示する場合は [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install) も必要です。※ agy 1.2.12 では、`agy -p /usage` がコマンドとして処理されず、モデルへの依頼になる（1回あたり約1.2万トークンを消費する）ことがあります。本アプリはこれを検出すると、使用量を無駄に消費しないよう、そのセッション中は Antigravity の取得を停止します。
    - **Claude**: 残量を表示する場合は、[Claude Code CLI](https://code.claude.com/docs/en/setup)をインストールし、`claude auth login`でログインします。Claude Desktopだけを使う場合も、同じアカウントでCLIにログインしておけば表示できます。
    - **Grok**: 残量を表示する場合は、[公式Grok Build CLI](https://docs.x.ai/build/cli/reference)をインストールし、`grok login`でログインします。
    ※ 本アプリにCLIツール本体は同梱されていません。
