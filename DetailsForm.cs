@@ -222,9 +222,9 @@ internal sealed class DetailsForm : Form
             list.Controls.Add(card);
             var color = reading.Provider == "Codex" ? Mint : Violet;
             int cy = 10;
-            AddLabel(card, reading.Provider, new Rectangle(14, cy, 210, 25), color, 12, FontStyle.Bold);
+            AddLabel(card, reading.Provider, new Rectangle(14, cy, 170, 25), color, 12, FontStyle.Bold);
             string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
-            AddLabel(card, status, new Rectangle(214, cy + 2, 156, 28), Muted, 11, ellipsis: false);
+            AddLabel(card, status, new Rectangle(186, cy + 2, 178, 28), Muted, 11, align: ContentAlignment.TopRight);
             cy += 36;
             if (reading.Quotas.Count == 0)
             {
@@ -252,9 +252,9 @@ internal sealed class DetailsForm : Form
     internal static IEnumerable<Reading> OrderedReadings(Preferences display, params Reading?[] readings) =>
         readings.Where(r => r != null).Cast<Reading>()
             .OrderBy(r => r.Provider == display.TaskbarTop ? 0 : r.Provider == display.TaskbarBottom ? 1 : 2);
-    private void AddLabel(Control parent, string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true)
+    private void AddLabel(Control parent, string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true, ContentAlignment align = ContentAlignment.TopLeft)
     {
-        parent.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis });
+        parent.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis, TextAlign = align });
     }
     protected override void OnPaint(PaintEventArgs e)
     {
