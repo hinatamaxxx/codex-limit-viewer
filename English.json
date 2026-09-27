@@ -16,6 +16,7 @@
     "Codexアプリ経由":  "Via Codex app",
     "Claude Code statusLine経由":  "Via Claude Code status line",
     "Claude Codeの使用状況を読み取れません":  "Cannot read Claude Code usage",
+    "Claude Code CLIの応答後に表示されます（Claude Desktopでは取得できません）":  "Appears after a Claude Code CLI response (not available from Claude Desktop)",
     "Claude Codeの残量は利用できません":  "Claude Code quota is unavailable",
     "Codex CLI経由":  "Via Codex CLI",
     "agy CLI経由":  "Via agy CLI",

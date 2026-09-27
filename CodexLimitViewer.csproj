@@ -11,5 +11,8 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>CodexLimitViewer</AssemblyName><Product>Codex Limit Viewer</Product><Title>Codex Limit Viewer</Title><Version>0.1.2</Version><Description>Codex Limit Viewer for Windows 11</Description>
   </PropertyGroup>
-  <ItemGroup><EmbeddedResource Include="English.json" LogicalName="CodexLimitViewer.English.json" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="English.json" LogicalName="CodexLimitViewer.English.json" />
+    <EmbeddedResource Include="ClaudeCodeStatusLine.ps1" LogicalName="CodexLimitViewer.ClaudeCodeStatusLine.ps1" />
+  </ItemGroup>
 </Project>

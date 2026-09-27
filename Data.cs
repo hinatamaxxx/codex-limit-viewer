@@ -62,7 +62,7 @@ internal static class QuotaParser
             foreach (var b in all.EnumerateObject()) AddBucket(b.Value, b.Name == "codex" ? "" : b.Name + " · ", rows);
         }
         if (rows.Count == 0 && result.TryGetProperty("rateLimits", out var bucket)) AddBucket(bucket, "", rows);
-        return new("Codex", rows, DateTimeOffset.UtcNow, rows.Count == 0 ? "残量が返されませんでした" : null);
+        return new("Codex", rows, DateTimeOffset.UtcNow, rows.Count == 0 ? L.T("残量が返されませんでした") : null);
     }
     private static void AddBucket(JsonElement b, string prefix, List<Quota> rows)
     {
@@ -84,14 +84,14 @@ internal static class QuotaParser
         if (!root.TryGetProperty("status", out var status) || status.GetString() != "SUCCESS" ||
             !root.TryGetProperty("command", out var command) ||
             !command.TryGetProperty("name", out var name) || name.GetString() != "usage")
-            throw new IOException("agyから残量応答が返されませんでした");
+            throw new IOException(L.T("agyから残量応答が返されませんでした"));
         var quotas = new Dictionary<string, JsonElement>();
         foreach (var group in command.GetProperty("data").GetProperty("groups").EnumerateArray())
             foreach (var bucket in group.GetProperty("buckets").EnumerateArray())
                 quotas[bucket.GetProperty("id").GetString()!] = bucket;
         var data = JsonSerializer.SerializeToElement(new { quota = quotas });
         var reading = Antigravity(data, DateTimeOffset.UtcNow);
-        if (reading.Quotas.Count == 0) throw new IOException("agyの残量応答が空でした");
+        if (reading.Quotas.Count == 0) throw new IOException(L.T("agyの残量応答が空でした"));
         return reading;
     }
     public static Reading Antigravity(JsonElement root, DateTimeOffset? timestamp)
@@ -106,6 +106,6 @@ internal static class QuotaParser
                 if (item.Value.TryGetProperty("reset_time", out var r) && r.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(r.GetString(), out var dt)) reset = dt;
                 rows.Add(new(item.Name, fraction * 100, reset));
             }
-        return new("Antigravity", rows, timestamp, rows.Count == 0 ? "agyで /usage を開くと残量が届きます" : null);
+        return new("Antigravity", rows, timestamp, rows.Count == 0 ? L.T("agyで /usage を開くと残量が届きます") : null);
     }
 }

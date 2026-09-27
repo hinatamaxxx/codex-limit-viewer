@@ -11,6 +11,7 @@ internal static class Program
         if (args.Contains("--self-test")) return Verification.Run();
         if (args.Contains("--diagnose"))
         {
+            ClaudeCodeUsage.EnsureBridge();
             Reading c;
             try { c = Providers.Codex(CancellationToken.None).GetAwaiter().GetResult(); }
             catch (Exception e) { c = new("Codex", [], null, e.Message); }
@@ -29,6 +30,7 @@ internal static class Program
         if (args.Contains("--render-live")) return Verification.Render(true);
         using var mutex = new Mutex(true, "Local\\CodexLimitViewer", out bool created);
         if (!created) return 0;
+        ClaudeCodeUsage.EnsureBridge();
         Application.Run(new TrayApplicationContext());
         return 0;
     }
@@ -160,7 +162,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         busy = true; Apply();
         var agyTask = RefreshAntigravity();
         var grokTask = RefreshGrok();
-        claude = ClaudeCodeUsage.ReadSnapshot();
+        // A failure here must not skip the finally below, or busy stays set and refreshing stops for good.
+        try { claude = ClaudeCodeUsage.ReadSnapshot(); }
+        catch (Exception e) { claude = new Reading("Claude Code", [], null, e.Message); }
         try { codex = await Providers.Codex(stop.Token); }
         catch (OperationCanceledException) { codex = codex with { Error = L.T("接続がタイムアウトしました") }; }
         catch (Exception e) { codex = codex with { Error = e.Message }; }
@@ -183,7 +187,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (closing) return;
         Reading? displayedClaude = claude;
         if (displayedClaude == null && (prefs.TaskbarTop == "Claude Code" || prefs.TaskbarBottom == "Claude Code"))
-            displayedClaude = new Reading("Claude Code", [], null, L.T("Claude Codeの残量は利用できません"));
+            displayedClaude = ClaudeCodeUsage.Waiting;
         Reading? displayedGrok = grok.Quotas.Count > 0 || prefs.TaskbarTop == "Grok" || prefs.TaskbarBottom == "Grok" ? grok : null;
         form.UpdateReadings(codex, agy, displayedClaude, displayedGrok, busy);
         var top = ForTaskbar(prefs.TaskbarTop, displayedClaude);
@@ -196,7 +200,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Reading ForTaskbar(string provider, Reading? displayedClaude) => provider switch
     {
         "Antigravity" => agy,
-        "Claude Code" => displayedClaude ?? new Reading("Claude Code", [], null, L.T("Claude Codeの残量は利用できません")),
+        "Claude Code" => displayedClaude ?? ClaudeCodeUsage.Waiting,
         "Grok" => grok,
         _ => codex
     };

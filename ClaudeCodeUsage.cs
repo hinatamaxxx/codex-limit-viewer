@@ -6,6 +6,42 @@ internal static class ClaudeCodeUsage
 {
     internal static string SnapshotPath => Path.Combine(Preferences.Folder, "claude-code-usage.json");
 
+    internal static string BridgePath => Path.Combine(Preferences.Folder, "ClaudeCodeStatusLine.ps1");
+    private static string SettingsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
+
+    // EnableClaudeCode.ps1 points Claude Code at a copy of the bridge. Restore it when that copy disappears or is outdated,
+    // otherwise the status line command fails silently and no quota ever arrives.
+    internal static void EnsureBridge()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath) || !IsBridgeCommand(File.ReadAllText(SettingsPath))) return;
+            using var stream = typeof(ClaudeCodeUsage).Assembly.GetManifestResourceStream("CodexLimitViewer.ClaudeCodeStatusLine.ps1")!;
+            using var reader = new StreamReader(stream);
+            var bridge = reader.ReadToEnd();
+            if (File.Exists(BridgePath) && File.ReadAllText(BridgePath) == bridge) return;
+            Directory.CreateDirectory(Preferences.Folder);
+            File.WriteAllText(BridgePath, bridge, new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    internal static bool IsBridgeCommand(string settings)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(settings, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            return doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("statusLine", out var line) && line.ValueKind == JsonValueKind.Object &&
+                line.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String &&
+                command.GetString()!.Replace('\\', '/').Contains("CodexLimitViewer/ClaudeCodeStatusLine.ps1", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException) { return false; }
+    }
+
+    // Only Claude Code in a terminal runs status line commands; Claude Desktop sessions never produce a snapshot.
+    internal static Reading Waiting => new("Claude Code", [], null, L.T("Claude Code CLIの応答後に表示されます（Claude Desktopでは取得できません）"));
+
     internal static Reading? ReadSnapshot()
     {
         if (!File.Exists(SnapshotPath)) return null;
@@ -19,7 +55,7 @@ internal static class ClaudeCodeUsage
                 : new DateTimeOffset(File.GetLastWriteTimeUtc(SnapshotPath), TimeSpan.Zero);
             return Parse(root, captured);
         }
-        catch (Exception e) when (e is IOException or JsonException or ArgumentOutOfRangeException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentOutOfRangeException or InvalidOperationException)
         {
             return new Reading("Claude Code", [], null, L.T("Claude Codeの使用状況を読み取れません"));
         }

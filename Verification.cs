@@ -76,7 +76,6 @@ internal static class Verification
             bool invalidGrok = false;
             try { GrokUsage.Parse(grokMonthly.RootElement, DateTimeOffset.UtcNow); } catch (IOException) { invalidGrok = true; }
             Check(invalidGrok, "Grok non-weekly data is not mislabeled", results);
-            results.Add("All tests passed.");
             var area = new Rectangle(0, 0, 1920, 1040);
             var anchor = new Rectangle(1700, 1045, 24, 24);
             var compact = TrayPresentation.Above(anchor, new Size(344, 54), area);
@@ -84,6 +83,12 @@ internal static class Verification
             Check(compact.Y + 54 == expanded.Y + 610 && compact.Y + 54 < anchor.Top, "Tray anchored expansion", results);
             Check(TrayPresentation.Above(new Rectangle(1900, 1045, 24, 24), new Size(460, 610), area).X == 1460, "Right edge containment", results);
             Check(TrayPresentation.Above(new Rectangle(500, 0, 24, 24), new Size(460, 610), new Rectangle(0, 40, 1920, 1040)).Y >= 40, "Top taskbar containment", results);
+            Check(ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"powershell -File \"C:\\Users\\a\\AppData\\Local\\CodexLimitViewer\\ClaudeCodeStatusLine.ps1\""}}""") &&
+                !ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"other.ps1"}}""") &&
+                !ClaudeCodeUsage.IsBridgeCommand("not json"), "Claude Code bridge command is recognized", results);
+            Check(L.T("Claude Code CLIの応答後に表示されます（Claude Desktopでは取得できません）") != "" && ClaudeCodeUsage.Waiting.Quotas.Count == 0,
+                "Claude Code waiting state never becomes zero", results);
+            results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;
         }

@@ -56,7 +56,7 @@ The app reads 5-hour and 7-day usage percentages from the [official Claude Code 
 powershell -NoProfile -ExecutionPolicy Bypass -File ./EnableClaudeCode.ps1
 ```
 
-The setup keeps any existing status line unchanged (add the bridge command manually). Otherwise, it backs up your settings and saves only usage percentages and a timestamp locally. After a Claude Code response supplies quota data, it appears in the details window and in one of the two taskbar rows if selected under Taskbar display. Missing data appears as “—”, never as 0%. Availability of rate-limit data depends on your account and Claude Code setup. Installing Claude Desktop alone does not provide Claude Code quota data.
+The setup keeps any existing status line unchanged (add the bridge command manually). Otherwise, it backs up your settings and saves only usage percentages and a timestamp locally. After a Claude Code response supplies quota data, it appears in the details window and in one of the two taskbar rows if selected under Taskbar display. Missing data appears as “—”, never as 0%. Availability of rate-limit data depends on your account and Claude Code setup. The Code tab in Claude Desktop does not run status line commands, so Claude Desktop alone cannot provide quota data; it appears after a response from the [Claude Code CLI](https://code.claude.com/docs/en/setup) in a terminal. If the bridge script is deleted, the app restores it on startup.
 
 ## Grok Integration
 
