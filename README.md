@@ -13,7 +13,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 - **常時モニタリング**: タスクバー上に残量（最も低いバケットの割合）を常に表示。作業の手を止めずに残り枠を一目で把握できます。
 - **2行の表示を選択**: 右クリックメニューの「タスクバー表示」から、上段と下段にCodex、Antigravity、Claude Code、Grokを割り当てられます。すでに別の段で選択されている項目を選ぶと上下が自動で入れ替わります。
 - **ホバーで詳細確認**: 初期状態はオフです。有効にすると、各バケットの詳細残量、リセットまでの時間（日数・時間・分）、翌日以降のリセット日、最終取得時刻がフェード表示されます。カーソルが表示領域および詳細画面を離れると速やかに消えます。オフのときは中央にアプリ名のツールチップを表示します。
-- **4つのサービス連携**: Codexはデスクトップアプリ同梱または単独のCodex CLI、Antigravityは`agy`、Grokは公式Grok Build CLIから60秒ごとに取得します。Claude Codeは公式status lineから使用率を受け取ります。本アプリが認証情報を抽出・保持することはありません。
+- **4つのサービス連携**: Codexはデスクトップアプリ同梱または単独のCodex CLI、Antigravityは`agy`、Grokは公式Grok Build CLIから60秒ごとに取得します。Claudeは[Claude Code CLI](https://code.claude.com/docs/en/setup)のログインを使って60秒ごとに取得します。本アプリが認証情報を保存・送信することはありません（Claudeのログイン情報をAnthropicのAPIへ送る場合を除く）。
 - **Grokの週次利用枠**: 公式Grok Build CLI（`grok.exe`）から残り割合とリセット日時を取得し、詳細画面に表示します。右クリックメニューの「タスクバー表示」で上段または下段にも表示できます。
 - **エラー時の安心表示**: 取得に失敗した場合は前回の数値をグレーで維持表示し、表示のチラつきや急な消失を防ぎます。
 - **バイリンガル対応**: 日本語を標準搭載。右クリックメニューからいつでも英語表記へ切り替え可能です。
@@ -25,7 +25,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 1. **事前準備**:
    - **Codex**: [ChatGPTデスクトップアプリ](https://learn.chatgpt.com/docs/windows/windows-app)のCodex機能、または単独の [Codex CLI](https://github.com/openai/codex) をインストールしてログインします。Codex側はローカルに`codex.exe`がある構成で動作します。
    - **Antigravity**: 残量を表示する場合は [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install) も必要です。
-   - **Claude Code**: 残量を表示する場合は、Claude Codeを利用できるアカウントが必要です。
+   - **Claude**: 残量を表示する場合は、[Claude Code CLI](https://code.claude.com/docs/en/setup)をインストールし、`claude auth login`でログインします。Claude Desktopだけを使う場合も、同じアカウントでCLIにログインしておけば表示できます。
    - **Grok**: 残量を表示する場合は、[公式Grok Build CLI](https://docs.x.ai/build/cli/reference)をインストールし、`grok login`でログインします。
    ※ 本アプリにCLIツール本体は同梱されていません。
 2. **ダウンロード**:
@@ -52,13 +52,13 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 
 ## Claude Codeの連携
 
-[Claude Codeの公式status line](https://code.claude.com/docs/en/statusline)に含まれる5時間・7日間の使用率を読み取ります。Claude Codeを利用できるプランで、展開したフォルダから次を一度実行してください。
+[Claude Code CLI](https://code.claude.com/docs/en/setup)にログインすると、そのログイン情報（`~/.claude/.credentials.json`）を使ってAnthropicの使用状況APIに60秒ごとに問い合わせ、5時間・週間の残量とリセット時刻を表示します。残量はアカウント全体の値のため、Claude DesktopやWeb版での利用も反映されます。ログイン情報はapi.anthropic.comへの問い合わせだけに使い、本アプリが保存・記録することはありません。ログインの有効期限が切れた場合は、CLIに更新させます（`claude auth status`を実行します）。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ./EnableClaudeCode.ps1
+claude auth login
 ```
 
-既存のstatus lineがある場合は上書きしません（手動でブリッジコマンドを追加してください）。新しく設定する場合は元の設定をバックアップし、受け取った使用率と取得時刻だけをローカルに保存します。Claude Codeの応答後に数値が届くと詳細欄に現れ、「タスクバー表示」で選択した場合は2行のうちの1行に表示します。データがない間は「—」と表示し、0%とは区別します。利用枠データの提供状況はアカウントやClaude Codeの設定によって異なります。Claude DesktopのCodeタブはstatus lineを実行しないため、Claude Desktopだけでは数値を取得できません。ターミナルで[Claude Code CLI](https://code.claude.com/docs/en/setup)を使った応答の後に表示されます。連携用スクリプトが削除された場合は、本アプリの起動時に自動で復元します。
+このAPIは公開ドキュメントのない内部APIのため、将来変更される可能性があります。取得できないときは、従来の[公式status line](https://code.claude.com/docs/en/statusline)の連携（展開したフォルダで`EnableClaudeCode.ps1`を一度実行）で、CLIの応答後に届いた数値を代わりに表示します。データがない間は「—」と表示し、0%とは区別します。
 
 ## Grokの連携
 
@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - 未署名のプレリリース版です。Windows 11（150% DPI環境）で動作確認を行っています。マルチモニタ（異なるDPI設定）や再起動直後の自動起動挙動は未検証です。
 - ライセンス: [MIT License](LICENSE)
 - 開発にはGPT-6 Sol（推論設定: Medium／中）のCodexを使用し、日本語・英語の公開文はGemini 3.8 Flash (High)（推論設定: High）で校正しました。
-- v0.1.3のClaude Code連携の修正、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。
+- v0.1.3〜v0.1.4のClaude連携の修正・自動取得、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。

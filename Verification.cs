@@ -86,8 +86,14 @@ internal static class Verification
             Check(ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"powershell -File \"C:\\Users\\a\\AppData\\Local\\CodexLimitViewer\\ClaudeCodeStatusLine.ps1\""}}""") &&
                 !ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"other.ps1"}}""") &&
                 !ClaudeCodeUsage.IsBridgeCommand("not json"), "Claude Code bridge command is recognized", results);
-            Check(L.T("Claude Code CLIの応答後に表示されます（Claude Desktopでは取得できません）") != "" && ClaudeCodeUsage.Waiting.Quotas.Count == 0,
+            Check(ClaudeCodeUsage.Waiting.Quotas.Count == 0 && ClaudeCodeUsage.Waiting.Compact == "—",
                 "Claude Code waiting state never becomes zero", results);
+            using var claudeApi = JsonDocument.Parse("""{"five_hour":{"utilization":12.5,"resets_at":"2099-01-01T00:00:00+00:00"},"seven_day":{"utilization":40,"resets_at":"2099-01-02T00:00:00Z"},"seven_day_opus":{"utilization":0,"resets_at":null},"seven_day_oauth_apps":null}""");
+            var claudeLive = ClaudeUsageApi.Parse(claudeApi.RootElement, DateTimeOffset.UtcNow);
+            Check(claudeLive.Quotas.Count == 2 && claudeLive.Quotas[0].Remaining == 87.5 && claudeLive.Quotas[1].Label == "週間" &&
+                claudeLive.Quotas[1].Remaining == 60 && claudeLive.Error == null, "Claude usage API becomes remaining quota", results);
+            using var claudeEmpty = JsonDocument.Parse("""{"five_hour":null}""");
+            Check(ClaudeUsageApi.Parse(claudeEmpty.RootElement, DateTimeOffset.UtcNow).Quotas.Count == 0, "Missing Claude usage never becomes zero", results);
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;

@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Win32;
 
@@ -20,8 +21,11 @@ internal static class Program
             Reading g;
             try { g = GrokUsage.ReadLive(CancellationToken.None).GetAwaiter().GetResult(); }
             catch (Exception e) { g = new("Grok", [], null, e.Message); }
+            Reading cl;
+            try { cl = ClaudeUsageApi.ReadLive(CancellationToken.None).GetAwaiter().GetResult(); }
+            catch (Exception e) { cl = new("Claude Code", [], null, e.Message); }
             Directory.CreateDirectory(Preferences.Folder);
-            File.WriteAllText(Path.Combine(Preferences.Folder, "diagnostics.json"), JsonSerializer.Serialize(new { codex = c, antigravity = a, claudeCode = ClaudeCodeUsage.ReadSnapshot(), grok = g }, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(Path.Combine(Preferences.Folder, "diagnostics.json"), JsonSerializer.Serialize(new { codex = c, antigravity = a, claudeCode = cl, claudeCodeStatusLine = ClaudeCodeUsage.ReadSnapshot(), grok = g }, new JsonSerializerOptions { WriteIndented = true }));
             return c.Quotas.Count > 0 ? 0 : 1;
         }
         L.English = args.Contains("--english") || (!args.Contains("--japanese") && Preferences.Load().Language == "en");
@@ -162,19 +166,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
         busy = true; Apply();
         var agyTask = RefreshAntigravity();
         var grokTask = RefreshGrok();
-        // A failure here must not skip the finally below, or busy stays set and refreshing stops for good.
-        try { claude = ClaudeCodeUsage.ReadSnapshot(); }
-        catch (Exception e) { claude = new Reading("Claude Code", [], null, e.Message); }
+        var claudeTask = RefreshClaude();
         try { codex = await Providers.Codex(stop.Token); }
         catch (OperationCanceledException) { codex = codex with { Error = L.T("接続がタイムアウトしました") }; }
         catch (Exception e) { codex = codex with { Error = e.Message }; }
-        finally { await Task.WhenAll(agyTask, grokTask); busy = false; if (!closing) Apply(); }
+        finally { await Task.WhenAll(agyTask, grokTask, claudeTask); busy = false; if (!closing) Apply(); }
     }
     private async Task RefreshAntigravity()
     {
         try { agy = await Providers.AntigravityLive(stop.Token); }
         catch (OperationCanceledException) { agy = agy with { Error = L.T("取得がタイムアウトしました") }; }
         catch (Exception e) { agy = agy with { Error = e.Message }; }
+    }
+    private async Task RefreshClaude()
+    {
+        // Prefer the account-wide API; fall back to the status line snapshot, keeping the last values grayed out on failure.
+        try { claude = await ClaudeUsageApi.ReadLive(stop.Token); return; }
+        catch (Exception e) when (e is OperationCanceledException or IOException or HttpRequestException or JsonException)
+        {
+            Reading? snapshot;
+            try { snapshot = ClaudeCodeUsage.ReadSnapshot(); } catch (Exception) { snapshot = null; }
+            var message = e is OperationCanceledException ? L.T("取得がタイムアウトしました") : e.Message;
+            if (snapshot is { Quotas.Count: > 0 } && !snapshot.Stale) claude = snapshot;
+            else if (claude is { Quotas.Count: > 0 }) claude = claude with { Error = message };
+            else claude = snapshot is { Quotas.Count: > 0 } ? snapshot : new Reading("Claude Code", [], null, message);
+        }
     }
     private async Task RefreshGrok()
     {

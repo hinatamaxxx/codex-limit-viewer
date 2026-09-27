@@ -39,8 +39,8 @@ internal static class ClaudeCodeUsage
         catch (JsonException) { return false; }
     }
 
-    // Only Claude Code in a terminal runs status line commands; Claude Desktop sessions never produce a snapshot.
-    internal static Reading Waiting => new("Claude Code", [], null, L.T("Claude Code CLIの応答後に表示されます（Claude Desktopでは取得できません）"));
+    // Shown as "—" until the first refresh finishes.
+    internal static Reading Waiting => new("Claude Code", [], null);
 
     internal static Reading? ReadSnapshot()
     {

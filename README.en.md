@@ -13,7 +13,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Always Visible**: Glance at your remaining quota percentage (lowest bucket) directly in your Windows 11 notification area without interrupting your work.
 - **Choose Two Rows**: Select Codex, Antigravity, Claude Code, or Grok for the top and bottom rows from the right-click menu. Selecting an item already in the other row automatically swaps them.
 - **Details on Hover**: Off by default. When enabled, hovering displays per-bucket quota, reset countdowns (days, hours, minutes), reset dates for periods crossing into later days, and the last updated timestamp in a smooth fade popup. It fades out as soon as the pointer leaves both the display and popup. When disabled, a centered tooltip shows the app name.
-- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds without extracting or storing credentials. Receives Claude Code usage from its official status line.
+- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds. Claude quota is fetched every 60 seconds using your [Claude Code CLI](https://code.claude.com/docs/en/setup) sign-in. The app never stores or transmits credentials, except for sending the Claude sign-in token to Anthropic’s API.
 - **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`) in the details popup. Choose Grok for either taskbar row in the right-click menu.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
@@ -25,7 +25,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 1. **Prerequisites**:
    - **Codex**: Install and sign in to Codex in the [ChatGPT desktop app](https://learn.chatgpt.com/docs/windows/windows-app), or install the standalone [Codex CLI](https://github.com/openai/codex). Codex requires a local `codex.exe`.
    - **Antigravity**: To display Antigravity quota, install the [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install).
-   - **Claude Code**: To display Claude Code quota, you need an account with access to Claude Code.
+   - **Claude**: To display Claude quota, install the [Claude Code CLI](https://code.claude.com/docs/en/setup) and sign in with `claude auth login`. This also works if you mainly use Claude Desktop, as long as the CLI is signed in to the same account.
    - **Grok**: To display Grok quota, install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and sign in with `grok login`.
    *Note: This application does not bundle CLI tools.*
 2. **Download**:
@@ -52,13 +52,13 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 
 ## Claude Code Integration
 
-The app reads 5-hour and 7-day usage percentages from the [official Claude Code status line](https://code.claude.com/docs/en/statusline). If you can use Claude Code, run this once from the extracted folder:
+After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every 60 seconds and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to api.anthropic.com and is never stored or logged by this app. When the sign-in expires, the app lets the CLI renew it by running `claude auth status`.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ./EnableClaudeCode.ps1
+claude auth login
 ```
 
-The setup keeps any existing status line unchanged (add the bridge command manually). Otherwise, it backs up your settings and saves only usage percentages and a timestamp locally. After a Claude Code response supplies quota data, it appears in the details window and in one of the two taskbar rows if selected under Taskbar display. Missing data appears as “—”, never as 0%. Availability of rate-limit data depends on your account and Claude Code setup. The Code tab in Claude Desktop does not run status line commands, so Claude Desktop alone cannot provide quota data; it appears after a response from the [Claude Code CLI](https://code.claude.com/docs/en/setup) in a terminal. If the bridge script is deleted, the app restores it on startup.
+This is an undocumented internal API and may change. If it is unavailable, the app falls back to the [official status line](https://code.claude.com/docs/en/statusline) bridge (run `EnableClaudeCode.ps1` once from the extracted folder), which supplies values after CLI responses. Missing data appears as “—”, never as 0%.
 
 ## Grok Integration
 
@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
 - License: [MIT License](LICENSE)
 - Codex with GPT-6 Sol (reasoning effort: Medium) was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
-- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3 Claude Code integration fixes, the app icon, and release work.
+- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.4 Claude integration fixes and automatic quota fetching, the app icon, and release work.
