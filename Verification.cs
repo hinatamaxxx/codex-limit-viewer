@@ -18,22 +18,15 @@ internal static class Verification
             Check(display.TaskbarTop == "Claude Code" && display.TaskbarBottom == "Codex", "Selecting the other row swaps providers", results);
             display.SelectTaskbarProvider(false, "Grok", persist: false);
             Check(display.TaskbarTop == "Claude Code" && display.TaskbarBottom == "Grok", "Taskbar row can show Grok", results);
-            Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "リセットまで 4日 4時間 0分", "Countdown 100 hours uses days", results);
-            Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(24)) == "リセットまで 1日 0時間 0分", "Countdown day boundary", results);
-            Check(DetailsForm.FormatCountdown(TimeSpan.FromMinutes(1439)) == "リセットまで 23時間 59分", "Countdown below one day", results);
-            Check(DetailsForm.FormatCountdown(null) == "リセット時刻不明" && DetailsForm.FormatCountdown(TimeSpan.Zero) == "リセット時刻経過 · 更新待ち", "Countdown missing and expired", results);
-            var late = DateTime.Today.AddHours(23);
-            var nearMidnight = new DateTimeOffset(late, TimeZoneInfo.Local.GetUtcOffset(late));
-            var nextDayReset = nearMidnight.AddHours(2);
-            Check(DetailsForm.FormatResetDate(nextDayReset, nearMidnight)?.Contains(nextDayReset.ToLocalTime().ToString("M月d日")) == true,
-                "Reset date appears when a short countdown crosses midnight", results);
-            Check(DetailsForm.FormatResetDate(nearMidnight.AddMinutes(30), nearMidnight) == null &&
-                DetailsForm.FormatResetDate(null, nearMidnight) == null,
-                "Same-day and unknown resets keep the compact layout", results);
+            var noon = new DateTimeOffset(2026, 9, 27, 12, 0, 0, TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 9, 27, 12, 0, 0)));
+            Check(DetailsForm.FormatReset(noon.AddHours(4).AddMinutes(7), noon) == "今日 16:07 にリセット（あと4時間7分）", "Same-day reset shows today and time left", results);
+            Check(DetailsForm.FormatReset(noon.AddHours(21), noon) == "明日 9:00 にリセット（あと21時間0分）", "Next-day reset shows tomorrow", results);
+            Check(DetailsForm.FormatReset(noon.AddDays(6).AddHours(6), noon) == "10月3日(土) 18:00 にリセット（あと6日6時間）", "Later reset shows date and weekday", results);
+            Check(DetailsForm.FormatReset(noon.AddSeconds(20), noon) == "今日 12:00 にリセット（あと1分）", "Under a minute never shows zero", results);
+            Check(DetailsForm.FormatReset(null, noon) == "リセット時刻不明" && DetailsForm.FormatReset(noon, noon) == "リセット時刻経過 · 更新待ち", "Reset missing and expired", results);
             L.English = true;
-            Check(DetailsForm.FormatCountdown(TimeSpan.FromHours(100)) == "Resets in 4d 4h 0m", "English duration", results);
-            Check(DetailsForm.FormatResetDate(nextDayReset, nearMidnight)?.StartsWith("Resets ") == true,
-                "English reset date", results);
+            Check(DetailsForm.FormatReset(noon.AddDays(6).AddHours(6), noon) == "Resets Sat, Oct 3 18:00 (in 6d 6h)", "English reset date", results);
+            Check(DetailsForm.FormatReset(noon.AddHours(4).AddMinutes(7), noon) == "Resets today 16:07 (in 4h 7m)", "English same-day reset", results);
             Check(L.F("取得 {age}", ("age", "09/22 03:00:00")) == "Fetched 09/22 03:00:00", "English timestamp", results);
             Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel" &&
                 L.T("Codexアプリ経由") == "Via Codex app" &&
