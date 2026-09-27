@@ -76,7 +76,7 @@ internal static class Providers
             await proc.WaitForExitAsync(timeout.Token);
             if (proc.ExitCode != 0) throw new IOException(L.T("agyの残量取得に失敗しました。ログイン状態を確認してください"));
             using var doc = JsonDocument.Parse(await stdout);
-            return QuotaParser.AntigravityCommand(doc.RootElement);
+            return QuotaParser.AntigravityCommand(doc.RootElement) with { Source = L.T("agy CLI経由") };
         }
         finally
         {
