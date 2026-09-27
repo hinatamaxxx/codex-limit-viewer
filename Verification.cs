@@ -168,16 +168,16 @@ internal static class Verification
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-compact.png")); }
         f.Expand(true, false); Application.DoEvents();
         using (var bmp = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(bmp, f.ClientRectangle); bmp.Save(Path.Combine(AppContext.BaseDirectory, "preview-expanded.png")); }
-        using (var hover = ClockTextRenderer.Render(240, 72, 144, c, a, true))
+        using (var hover = ClockTextRenderer.Render(192, 72, 144, c, a, true))
             hover.Save(Path.Combine(AppContext.BaseDirectory, "preview-hover.png"));
         var exampleClaude = new Reading("Claude Code", [new("5時間", 41, DateTimeOffset.UtcNow.AddHours(3)), new("週間", 71, DateTimeOffset.UtcNow.AddDays(5))], DateTimeOffset.UtcNow);
-        using (var selectedClaude = ClockTextRenderer.Render(240, 72, 144, c, exampleClaude))
+        using (var selectedClaude = ClockTextRenderer.Render(192, 72, 144, c, exampleClaude))
             selectedClaude.Save(Path.Combine(AppContext.BaseDirectory, "preview-claude.png"));
         var exampleGrok = new Reading("Grok", [new("週間", 73, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("Grok CLI経由"));
         f.UpdateReadings(c, a, null, exampleGrok, false);
         f.Expand(true, false); Application.DoEvents();
         using (var grokDetails = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(grokDetails, f.ClientRectangle); grokDetails.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-details.png")); }
-        using (var selectedGrok = ClockTextRenderer.Render(240, 72, 144, c, exampleGrok))
+        using (var selectedGrok = ClockTextRenderer.Render(192, 72, 144, c, exampleGrok))
             selectedGrok.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-taskbar.png"));
         f.Hide(); return 0;
     }

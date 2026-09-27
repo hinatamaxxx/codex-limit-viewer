@@ -44,8 +44,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly Preferences prefs = Preferences.Load();
     private readonly NotifyIcon tray = new();
     private readonly NotifyIcon agyTray = new();
-    // Five tray slots wide so "Claude Code 80%(20%)" fits.
-    private readonly NotifyIcon[] extraSlots = Enumerable.Range(0, 3).Select(_ => new NotifyIcon()).ToArray();
+    // Keep four slots: Windows 11 hides newly added tray icons in the overflow, which put a fifth slot under the ^ button.
+    private readonly NotifyIcon[] extraSlots = Enumerable.Range(0, 2).Select(_ => new NotifyIcon()).ToArray();
     private NotifyIcon? selectedTray;
     private readonly TrayContextMenu menu = new();
     private readonly System.Windows.Forms.Timer poll = new() { Interval = 60000 };

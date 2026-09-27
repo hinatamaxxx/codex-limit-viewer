@@ -34,8 +34,10 @@ internal static class ClockTextRenderer
                 dc.DrawText(label, new W.Point(6, Snap(y + (row - label.Height) / 2)));
                 M.Brush valueBrush = reading.Stale ? new M.SolidColorBrush(M.Color.FromRgb(190, 195, 207)) : M.Brushes.White;
                 double right = w - 6;
-                // Claude Code shows "weekly%(5-hour%)", e.g. "80%(20%)".
-                var value = Text(TaskbarValue(reading), valueBrush);
+                // Claude Code shows "weekly%(5-hour%)", e.g. "80%(20%)"; shrink the value rather than overlap the label.
+                var text = TaskbarValue(reading);
+                var value = Text(text, valueBrush);
+                for (double size = 11.5; size >= 9 && 6 + label.Width + 4 + value.Width > right; size -= 0.5) value = Text(text, valueBrush, size);
                 dc.DrawText(value, new W.Point(Snap(right - value.Width), Snap(y + (row - value.Height) / 2)));
             }
             double Snap(double value) => Math.Round(value * scale) / scale;

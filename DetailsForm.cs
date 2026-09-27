@@ -64,7 +64,7 @@ internal sealed class DetailsForm : Form
             if (expanded)
             {
                 RebuildRows();
-                foreach (var row in list.Controls.OfType<QuotaRow>()) row.RefreshCountdown();
+                foreach (var row in list.Controls.OfType<ProviderCard>().SelectMany(c => c.Controls.OfType<QuotaRow>())) row.RefreshCountdown();
             }
         };
         clock.Start();
@@ -164,7 +164,7 @@ internal sealed class DetailsForm : Form
         int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0) + (grok != null && grok.Quotas.Count == 0 ? 1 : 0);
         int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0) + (grok?.Quotas.Count ?? 0);
         int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(258 + 70 * count + 20 * missing + (claude == null ? 0 : 50) + (grok == null ? 0 : 50), 300, 720));
+            Math.Clamp(278 + 70 * count + 20 * missing + (claude == null ? 0 : 70) + (grok == null ? 0 : 70), 300, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
         ClientSize = target; ClampPosition();
@@ -215,42 +215,46 @@ internal sealed class DetailsForm : Form
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
         int y = 0;
+        // Each service gets its own framed card so its quotas read as one group.
         foreach (var reading in OrderedReadings(prefs, codex, agy, claude, grok))
         {
+            var card = new ProviderCard { Location = new Point(0, y), Width = 378 };
+            list.Controls.Add(card);
             var color = reading.Provider == "Codex" ? Mint : Violet;
-            AddLabel(reading.Provider, new Rectangle(8, y, 210, 25), color, 12);
+            int cy = 10;
+            AddLabel(card, reading.Provider, new Rectangle(14, cy, 210, 25), color, 12, FontStyle.Bold);
             string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
-            AddLabel(status, new Rectangle(232, y, 160, 28), Muted, 11, ellipsis: false);
-            y += 36;
+            AddLabel(card, status, new Rectangle(214, cy + 2, 156, 28), Muted, 11, ellipsis: false);
+            cy += 36;
             if (reading.Quotas.Count == 0)
             {
-                AddLabel(reading.Error ?? L.T("接続しています…"), new Rectangle(8, y, 364, 42), Muted, 10);
-                y += 48;
+                AddLabel(card, reading.Error ?? L.T("接続しています…"), new Rectangle(14, cy, 350, 42), Muted, 10);
+                cy += 48;
             }
             foreach (var quota in reading.Quotas)
             {
-                var row = new QuotaRow(quota, reading.Stale, color) { Location = new(4, y) };
-                row.Size = new Size(372, 65);
-                list.Controls.Add(row); y += row.Height + 5;
+                var row = new QuotaRow(quota, reading.Stale, color) { Location = new(10, cy), Size = new Size(356, 65) };
+                card.Controls.Add(row); cy += row.Height + 5;
             }
             if (reading.Quotas.Count > 0)
             {
                 var age = reading.Updated?.ToLocalTime().ToString("MM/dd HH:mm:ss") ?? "—";
-                AddLabel(L.F("取得 {age}", ("age", age)) + (reading.Error == null ? "" : L.T(" · 更新できません")), new Rectangle(8, y, 370, 28), Muted, 12);
-                y += 32;
+                AddLabel(card, L.F("取得 {age}", ("age", age)) + (reading.Error == null ? "" : L.T(" · 更新できません")), new Rectangle(10, cy, 354, 26), Muted, 12);
+                cy += 30;
             }
-            y += 20;
+            card.Height = cy + 6;
+            y += card.Height + 14;
         }
-        list.AutoScrollMinSize = new Size(0, Math.Max(0, y - 20));
+        list.AutoScrollMinSize = new Size(0, Math.Max(0, y - 14));
         list.ResumeLayout(); list.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
     }
     // Providers shown in the taskbar come first (top row, then bottom row); the rest keep their default order.
     internal static IEnumerable<Reading> OrderedReadings(Preferences display, params Reading?[] readings) =>
         readings.Where(r => r != null).Cast<Reading>()
             .OrderBy(r => r.Provider == display.TaskbarTop ? 0 : r.Provider == display.TaskbarBottom ? 1 : 2);
-    private void AddLabel(string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true)
+    private void AddLabel(Control parent, string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true)
     {
-        list.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis });
+        parent.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis });
     }
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -289,6 +293,25 @@ internal sealed class DetailsForm : Form
     {
         if (disposing) { clock.Dispose(); fade.Dispose(); }
         base.Dispose(disposing);
+    }
+    private sealed class ProviderCard : Panel
+    {
+        internal ProviderCard() { DoubleBuffered = true; BackColor = Color.FromArgb(40, 41, 47); }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var border = new Pen(Color.FromArgb(70, 74, 86));
+            using var path = Rounded(new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), 8);
+            e.Graphics.DrawPath(border, path);
+        }
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            // Clip the square panel background to the rounded border.
+            using var path = Rounded(new RectangleF(0, 0, Width, Height), 8);
+            Region?.Dispose(); Region = new Region(path); Invalidate();
+        }
     }
     private sealed class BufferedPanel : Panel
     {
