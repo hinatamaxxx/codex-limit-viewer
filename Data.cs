@@ -17,8 +17,6 @@ internal sealed class Preferences
     public string TaskbarBottom { get; set; } = "Antigravity";
     // true: "5-hour%(weekly%)"; false: "weekly%(5-hour%)".
     public bool FiveHourFirst { get; set; } = true;
-    // Services outside the taskbar rows start collapsed in the details popup; these were opened by the user.
-    public List<string> ExpandedProviders { get; set; } = [];
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");

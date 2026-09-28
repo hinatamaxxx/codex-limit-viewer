@@ -20,6 +20,8 @@ internal sealed class DetailsForm : Form
     private readonly BufferedPanel footer = new() { BackColor = Color.FromArgb(32, 32, 36) };
     private int footerHeight;
     private string? revealProvider;
+    // Folded services the reader opened; cleared each time the popup opens so they start folded again.
+    private readonly HashSet<string> openedProviders = [];
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private Reading? claude;
     private Reading? grok;
@@ -129,6 +131,7 @@ internal sealed class DetailsForm : Form
     internal void Reveal(bool nearTray = false, bool fromHover = false)
     {
         openedFromHover = fromHover;
+        if (!Visible) openedProviders.Clear();
         PositionAtTray();
         Expand(true, false); PositionAtTray();
         // A fresh open starts at the top; re-revealing a popup that is still fading out keeps its scroll.
@@ -217,7 +220,7 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale, top = prefs.TaskbarTop, bottom = prefs.TaskbarBottom, open = string.Join(",", prefs.ExpandedProviders), order = ClockTextRenderer.FiveHourFirst });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale, top = prefs.TaskbarTop, bottom = prefs.TaskbarBottom, open = string.Join(",", openedProviders), order = ClockTextRenderer.FiveHourFirst });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
@@ -231,7 +234,7 @@ internal sealed class DetailsForm : Form
         {
             // Services not shown in the taskbar can be folded to a one-line summary by clicking their header.
             bool foldable = reading.Provider != prefs.TaskbarTop && reading.Provider != prefs.TaskbarBottom;
-            bool folded = foldable && !prefs.ExpandedProviders.Contains(reading.Provider);
+            bool folded = foldable && !openedProviders.Contains(reading.Provider);
             var card = new ProviderCard { Location = new Point(0, folded ? fy : y), Width = 378 };
             (folded ? footer : list).Controls.Add(card);
             if (reading.Provider == revealProvider && !folded) revealY = y;
@@ -246,9 +249,8 @@ internal sealed class DetailsForm : Form
                 var provider = reading.Provider;
                 void Toggle(object? _, EventArgs __)
                 {
-                    if (prefs.ExpandedProviders.Remove(provider)) revealProvider = null;
-                    else { prefs.ExpandedProviders.Add(provider); revealProvider = provider; }
-                    prefs.Save();
+                    if (openedProviders.Remove(provider)) revealProvider = null;
+                    else { openedProviders.Add(provider); revealProvider = provider; }
                     // Rebuilding disposes the clicked label, so do it after this click handler returns.
                     BeginInvoke(() => { Expand(true, false); PositionAtTray(); });
                 }
