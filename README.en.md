@@ -52,7 +52,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 
 ## Claude Code Integration
 
-After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every 3 minutes (the API limits frequent requests) and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to Anthropic and is never stored elsewhere or logged by this app. Because the CLI only renews its sign-in when it calls the model, the app renews an expired sign-in (about every 8 hours) the same way the CLI does and writes it back to the CLI credentials file, keeping all other fields and preferring the CLI’s own renewal if it happened first. The taskbar row reads like “Claude Code 80%(20%)”: weekly remaining, with the 5-hour remaining in parentheses.
+After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every 3 minutes (the API limits frequent requests) and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to Anthropic and is never stored elsewhere or logged by this app. Because the CLI only renews its sign-in when it calls the model, the app renews an expired sign-in (about every 8 hours) the same way the CLI does and writes it back to the CLI credentials file, keeping all other fields and preferring the CLI’s own renewal if it happened first. The taskbar row reads like “Claude 80%(20%)”: weekly remaining, with the 5-hour remaining in parentheses.
 
 ```powershell
 claude auth login
@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
 - License: [MIT License](LICENSE)
 - Codex with GPT-6 Sol (reasoning effort: Medium) was used for development. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
-- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.8 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.
+- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.9 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.

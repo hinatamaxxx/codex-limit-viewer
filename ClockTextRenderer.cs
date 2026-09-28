@@ -29,7 +29,7 @@ internal static class ClockTextRenderer
             Draw(bottomReading, top + row);
             void Draw(Reading reading, double y)
             {
-                var label = Text(reading.Provider, M.Brushes.White);
+                var label = Text(TaskbarName(reading.Provider), M.Brushes.White);
                 label.SetFontWeight(W.FontWeights.Normal);
                 dc.DrawText(label, new W.Point(6, Snap(y + (row - label.Height) / 2)));
                 M.Brush valueBrush = reading.Stale ? new M.SolidColorBrush(M.Color.FromRgb(190, 195, 207)) : M.Brushes.White;
@@ -53,6 +53,8 @@ internal static class ClockTextRenderer
         return bitmap;
     }
 
+    // "Claude Code" leaves too little room for "80%(20%)" in the four-slot widget.
+    internal static string TaskbarName(string provider) => provider == "Claude Code" ? "Claude" : provider;
     internal static string TaskbarValue(Reading reading)
     {
         if (reading.Provider != "Claude Code") return reading.Compact;

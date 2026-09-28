@@ -115,6 +115,7 @@ internal static class Verification
             Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)) == "41%" &&
                 ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("週間", 71, null)], DateTimeOffset.UtcNow)) == "71%",
                 "Other providers keep a single taskbar value", results);
+            Check(ClockTextRenderer.TaskbarName("Claude Code") == "Claude" && ClockTextRenderer.TaskbarName("Codex") == "Codex", "Taskbar shortens Claude Code to Claude", results);
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;
