@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - 未署名のプレリリース版です。Windows 11（150% DPI環境）で動作確認を行っています。マルチモニタ（異なるDPI設定）や再起動直後の自動起動挙動は未検証です。
 - ライセンス: [MIT License](LICENSE)
 - 開発にはGPT-6 Sol（推論設定: Medium／中）のCodexを使用し、日本語・英語の公開文はGemini 3.8 Flash (High)（推論設定: High）で校正しました。
-- v0.1.3〜v0.1.11のClaude連携の修正・自動取得、詳細画面の表示順とリセット日時表示の改善、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。
+- v0.1.3〜v0.1.12のClaude連携の修正・自動取得、詳細画面の表示順とリセット日時表示の改善、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。

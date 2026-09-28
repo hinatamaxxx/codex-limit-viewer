@@ -221,7 +221,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Reading? displayedClaude = claude;
         if (displayedClaude == null && (prefs.TaskbarTop == "Claude Code" || prefs.TaskbarBottom == "Claude Code"))
             displayedClaude = ClaudeCodeUsage.Waiting;
-        Reading? displayedGrok = grok.Quotas.Count > 0 || prefs.TaskbarTop == "Grok" || prefs.TaskbarBottom == "Grok" ? grok : null;
+        // Show Grok whenever its CLI is installed, so a failed fetch explains itself instead of hiding the card.
+        Reading? displayedGrok = grok.Quotas.Count > 0 || prefs.TaskbarTop == "Grok" || prefs.TaskbarBottom == "Grok" ||
+            (grok.Error != null && grok.Error != L.T("Grok CLIが見つかりません")) ? grok : null;
         form.UpdateReadings(codex, agy, displayedClaude, displayedGrok, busy);
         var top = ForTaskbar(prefs.TaskbarTop, displayedClaude);
         var bottom = ForTaskbar(prefs.TaskbarBottom, displayedClaude);

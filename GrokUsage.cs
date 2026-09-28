@@ -39,7 +39,7 @@ internal static class GrokUsage
         var stderr = proc.StandardError.ReadToEndAsync();
         try
         {
-            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.11"}}}""");
+            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.12"}}}""");
             await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"_x.ai/billing","params":{}}""");
             await proc.StandardInput.FlushAsync(timeout.Token);
             while (true)
@@ -55,6 +55,10 @@ internal static class GrokUsage
                 {
                     if (error.TryGetProperty("code", out var code) && code.TryGetInt32(out var value) && value == -32601)
                         throw new IOException(L.T("Grok CLIを更新してください"));
+                    // An expired sign-in comes back as an internal error whose data names the credentials.
+                    if (error.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String &&
+                        data.GetString()!.Contains("credentials", StringComparison.OrdinalIgnoreCase))
+                        throw new IOException(L.T("Grok CLIで再ログインしてください（grok login）"));
                     if (error.TryGetProperty("code", out code) && code.TryGetInt32(out value))
                         throw new GrokRpcException(value, L.T("Grok CLIの利用状況を取得できません"));
                     throw new IOException(L.T("Grok CLIの利用状況を取得できません"));

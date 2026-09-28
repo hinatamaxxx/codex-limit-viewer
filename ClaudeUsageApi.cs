@@ -162,7 +162,7 @@ internal static class ClaudeUsageApi
         }
         return new Reading("Claude Code", rows, captured,
             rows.Count == 0 ? L.T("Claude Codeの残量は利用できません") : null,
-            L.T("Claude Code CLIのログイン経由"));
+            L.T("Claude Code CLI経由"));
     }
 
     private static void AddWindow(JsonElement root, string key, string label, List<Quota> rows)
