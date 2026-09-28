@@ -16,6 +16,10 @@ internal sealed class DetailsForm : Form
     private bool openedFromHover;
     private readonly Button pin = new(), refresh = new(), hide = new();
     private readonly BufferedPanel list = new() { AutoScroll = true, BackColor = Color.FromArgb(32, 32, 36) };
+    // Folded services stay pinned under the scrolling list so they are always in view.
+    private readonly BufferedPanel footer = new() { BackColor = Color.FromArgb(32, 32, 36) };
+    private int footerHeight;
+    private string? revealProvider;
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private Reading? claude;
     private Reading? grok;
@@ -58,6 +62,7 @@ internal sealed class DetailsForm : Form
         MakeButton(refresh, "↻", L.T("使用状況を更新"), () => RefreshRequested?.Invoke());
         MakeButton(hide, "×", L.T("通知領域に収納"), CloseDetails);
         Controls.Add(list);
+        Controls.Add(footer);
         clock.Tick += (_, _) =>
         {
             if (!Visible) return;
@@ -97,11 +102,14 @@ internal sealed class DetailsForm : Form
     {
         pin.Visible = refresh.Visible = hide.Visible = expanded;
         list.Visible = expanded;
+        footer.Visible = expanded && footerHeight > 0;
         pin.SetBounds(Width - 156, 17, 62, 30);
         refresh.SetBounds(Width - 91, 17, 30, 30);
         hide.SetBounds(Width - 55, 17, 30, 30);
         pin.ForeColor = prefs.Pinned ? Mint : Muted;
-        list.SetBounds(20, 85, Math.Max(20, Width - 40), Math.Max(1, Height - 90));
+        int footerSpace = footerHeight > 0 ? footerHeight + 10 : 0;
+        list.SetBounds(20, 85, Math.Max(20, Width - 40), Math.Max(1, Height - 90 - footerSpace));
+        footer.SetBounds(20, Height - 5 - footerHeight, Math.Max(20, Width - 40), Math.Max(1, footerHeight));
     }
     private void RoundWindow()
     {
@@ -165,8 +173,8 @@ internal sealed class DetailsForm : Form
     {
         expanded = value;
         if (value) RebuildRows();
-        // Fit the popup to what the cards actually show (collapsed cards are one line).
-        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24, Math.Clamp(85 + contentHeight + 12, 220, 720));
+        // Fit the popup to what the cards show (folded cards sit in the fixed footer).
+        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24, Math.Clamp(92 + contentHeight + (footerHeight > 0 ? footerHeight + 10 : 0), 220, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         ClientSize = target; ClampPosition();
         LayoutButtons(); Invalidate();
@@ -216,18 +224,19 @@ internal sealed class DetailsForm : Form
         // Child locations are relative to the current scroll offset; lay out from the top or each rebuild adds blank space below.
         list.AutoScrollPosition = Point.Empty;
         list.SuspendLayout();
-        foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
-        int y = 0;
+        foreach (Control c in list.Controls.Cast<Control>().Concat(footer.Controls.Cast<Control>()).ToArray()) { c.Parent!.Controls.Remove(c); c.Dispose(); }
+        int y = 0, fy = 0, revealY = -1;
         // Each service gets its own framed card so its quotas read as one group.
         foreach (var reading in OrderedReadings(prefs, codex, agy, claude, grok))
         {
-            var card = new ProviderCard { Location = new Point(0, y), Width = 378 };
-            list.Controls.Add(card);
-            var color = reading.Provider == "Codex" ? Mint : Violet;
-            int cy = 10;
             // Services not shown in the taskbar can be folded to a one-line summary by clicking their header.
             bool foldable = reading.Provider != prefs.TaskbarTop && reading.Provider != prefs.TaskbarBottom;
             bool folded = foldable && !prefs.ExpandedProviders.Contains(reading.Provider);
+            var card = new ProviderCard { Location = new Point(0, folded ? fy : y), Width = 378 };
+            (folded ? footer : list).Controls.Add(card);
+            if (reading.Provider == revealProvider && !folded) revealY = y;
+            var color = reading.Provider == "Codex" ? Mint : Violet;
+            int cy = 10;
             var title = AddLabel(card, (foldable ? (folded ? "▸ " : "▾ ") : "") + reading.Provider, new Rectangle(14, cy, 170, 25), color, 12, FontStyle.Bold);
             string status = folded ? ClockTextRenderer.TaskbarValue(reading)
                 : reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
@@ -237,7 +246,8 @@ internal sealed class DetailsForm : Form
                 var provider = reading.Provider;
                 void Toggle(object? _, EventArgs __)
                 {
-                    if (!prefs.ExpandedProviders.Remove(provider)) prefs.ExpandedProviders.Add(provider);
+                    if (prefs.ExpandedProviders.Remove(provider)) revealProvider = null;
+                    else { prefs.ExpandedProviders.Add(provider); revealProvider = provider; }
                     prefs.Save();
                     // Rebuilding disposes the clicked label, so do it after this click handler returns.
                     BeginInvoke(() => { Expand(true, false); PositionAtTray(); });
@@ -247,7 +257,7 @@ internal sealed class DetailsForm : Form
             if (folded)
             {
                 card.Height = cy + 36;
-                y += card.Height + 14;
+                fy += card.Height + 8;
                 continue;
             }
             cy += 36;
@@ -271,8 +281,12 @@ internal sealed class DetailsForm : Form
             y += card.Height + 14;
         }
         contentHeight = Math.Max(0, y - 14);
+        footerHeight = Math.Max(0, fy - 8);
         list.AutoScrollMinSize = new Size(0, contentHeight);
-        list.ResumeLayout(); list.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
+        list.ResumeLayout();
+        // A card just opened from the footer scrolls into view; otherwise keep the reader's position.
+        list.AutoScrollPosition = revealY >= 0 ? new Point(0, revealY) : new Point(-scroll.X, -scroll.Y);
+        revealProvider = null;
     }
     // Providers shown in the taskbar come first (top row, then bottom row); the rest keep their default order.
     internal static IEnumerable<Reading> OrderedReadings(Preferences display, params Reading?[] readings) =>
