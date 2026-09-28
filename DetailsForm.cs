@@ -7,6 +7,7 @@ internal sealed class DetailsForm : Form
 {
     private readonly Preferences prefs;
     private string? rowsKey;
+    private int contentHeight;
     private readonly System.Windows.Forms.Timer clock = new() { Interval = 1000 };
     private readonly System.Windows.Forms.Timer fade = new() { Interval = 15 };
     private const int FadeDurationMs = 160;
@@ -114,7 +115,7 @@ internal sealed class DetailsForm : Form
     internal void UpdateReadings(Reading c, Reading a, Reading? cl, Reading? gr, bool busy)
     {
         codex = c; agy = a; claude = cl; grok = gr; refreshing = busy;
-        if (expanded) RebuildRows();
+        if (expanded) Expand(true, false);
         Invalidate();
     }
     internal void Reveal(bool nearTray = false, bool fromHover = false)
@@ -122,6 +123,8 @@ internal sealed class DetailsForm : Form
         openedFromHover = fromHover;
         PositionAtTray();
         Expand(true, false); PositionAtTray();
+        // A fresh open starts at the top; re-revealing a popup that is still fading out keeps its scroll.
+        if (!Visible) list.AutoScrollPosition = Point.Empty;
         if (!Visible) { Opacity = 0; Show(); }
         Activate();
         FadeTo(1);
@@ -161,12 +164,10 @@ internal sealed class DetailsForm : Form
     internal void Expand(bool value, bool animate = true)
     {
         expanded = value;
-        int missing = (codex.Quotas.Count == 0 ? 1 : 0) + (agy.Quotas.Count == 0 ? 1 : 0) + (claude != null && claude.Quotas.Count == 0 ? 1 : 0) + (grok != null && grok.Quotas.Count == 0 ? 1 : 0);
-        int count = codex.Quotas.Count + agy.Quotas.Count + (claude?.Quotas.Count ?? 0) + (grok?.Quotas.Count ?? 0);
-        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24,
-            Math.Clamp(278 + 70 * count + 20 * missing + (claude == null ? 0 : 70) + (grok == null ? 0 : 70), 300, 720));
-        target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         if (value) RebuildRows();
+        // Fit the popup to what the cards actually show (collapsed cards are one line).
+        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24, Math.Clamp(85 + contentHeight + 12, 220, 720));
+        target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         ClientSize = target; ClampPosition();
         LayoutButtons(); Invalidate();
     }
@@ -208,10 +209,12 @@ internal sealed class DetailsForm : Form
     private void RebuildRows()
     {
         // Feed polling and refresh status can repeat unchanged readings.
-        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale, top = prefs.TaskbarTop, bottom = prefs.TaskbarBottom });
+        var key = System.Text.Json.JsonSerializer.Serialize(new { codex, agy, claude, grok, localDate = DateTime.Today, cStale = codex.Stale, aStale = agy.Stale, clStale = claude?.Stale, grStale = grok?.Stale, top = prefs.TaskbarTop, bottom = prefs.TaskbarBottom, open = string.Join(",", prefs.ExpandedProviders), order = ClockTextRenderer.FiveHourFirst });
         if (key == rowsKey) return;
         rowsKey = key;
         var scroll = list.AutoScrollPosition;
+        // Child locations are relative to the current scroll offset; lay out from the top or each rebuild adds blank space below.
+        list.AutoScrollPosition = Point.Empty;
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().ToArray()) { list.Controls.Remove(c); c.Dispose(); }
         int y = 0;
@@ -222,9 +225,31 @@ internal sealed class DetailsForm : Form
             list.Controls.Add(card);
             var color = reading.Provider == "Codex" ? Mint : Violet;
             int cy = 10;
-            AddLabel(card, reading.Provider, new Rectangle(14, cy, 170, 25), color, 12, FontStyle.Bold);
-            string status = reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
-            AddLabel(card, status, new Rectangle(186, cy + 2, 178, 28), Muted, 11, align: ContentAlignment.TopRight);
+            // Services not shown in the taskbar can be folded to a one-line summary by clicking their header.
+            bool foldable = reading.Provider != prefs.TaskbarTop && reading.Provider != prefs.TaskbarBottom;
+            bool folded = foldable && !prefs.ExpandedProviders.Contains(reading.Provider);
+            var title = AddLabel(card, (foldable ? (folded ? "▸ " : "▾ ") : "") + reading.Provider, new Rectangle(14, cy, 170, 25), color, 12, FontStyle.Bold);
+            string status = folded ? ClockTextRenderer.TaskbarValue(reading)
+                : reading.Updated == null ? L.T("未接続") : reading.Stale ? L.T("前回の値") : reading.Source ?? L.T("取得元不明");
+            var statusLabel = AddLabel(card, status, new Rectangle(186, cy + 2, 178, 28), folded && !reading.Stale ? Color.White : Muted, folded ? 12 : 11, align: ContentAlignment.TopRight);
+            if (foldable)
+            {
+                var provider = reading.Provider;
+                void Toggle(object? _, EventArgs __)
+                {
+                    if (!prefs.ExpandedProviders.Remove(provider)) prefs.ExpandedProviders.Add(provider);
+                    prefs.Save();
+                    // Rebuilding disposes the clicked label, so do it after this click handler returns.
+                    BeginInvoke(() => { Expand(true, false); PositionAtTray(); });
+                }
+                foreach (Control c in new Control[] { card, title, statusLabel }) { c.Cursor = Cursors.Hand; c.Click += Toggle; }
+            }
+            if (folded)
+            {
+                card.Height = cy + 36;
+                y += card.Height + 14;
+                continue;
+            }
             cy += 36;
             if (reading.Quotas.Count == 0)
             {
@@ -245,16 +270,19 @@ internal sealed class DetailsForm : Form
             card.Height = cy + 6;
             y += card.Height + 14;
         }
-        list.AutoScrollMinSize = new Size(0, Math.Max(0, y - 14));
+        contentHeight = Math.Max(0, y - 14);
+        list.AutoScrollMinSize = new Size(0, contentHeight);
         list.ResumeLayout(); list.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
     }
     // Providers shown in the taskbar come first (top row, then bottom row); the rest keep their default order.
     internal static IEnumerable<Reading> OrderedReadings(Preferences display, params Reading?[] readings) =>
         readings.Where(r => r != null).Cast<Reading>()
             .OrderBy(r => r.Provider == display.TaskbarTop ? 0 : r.Provider == display.TaskbarBottom ? 1 : 2);
-    private void AddLabel(Control parent, string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true, ContentAlignment align = ContentAlignment.TopLeft)
+    private Label AddLabel(Control parent, string text, Rectangle bounds, Color color, float size, FontStyle style = FontStyle.Regular, bool ellipsis = true, ContentAlignment align = ContentAlignment.TopLeft)
     {
-        parent.Controls.Add(new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis, TextAlign = align });
+        var label = new Label { Text = L.T(text), Bounds = bounds, ForeColor = color, Font = new Font("Segoe UI", size * DeviceDpi / 96f, style, GraphicsUnit.Pixel), AutoEllipsis = ellipsis, TextAlign = align };
+        parent.Controls.Add(label);
+        return label;
     }
     protected override void OnPaint(PaintEventArgs e)
     {
