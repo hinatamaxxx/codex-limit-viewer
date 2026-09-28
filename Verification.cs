@@ -112,9 +112,12 @@ internal static class Verification
             Check(sorted.SequenceEqual(new[] { "Claude Code", "Grok", "Codex", "Antigravity" }), "Details list starts with taskbar providers", results);
             Check(ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("5時間", 20.4, null), new("週間", 79.6, null)], DateTimeOffset.UtcNow)) == "80%(20%)",
                 "Claude Code taskbar row shows weekly and 5-hour quota", results);
-            Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)) == "41%" &&
-                ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("週間", 71, null)], DateTimeOffset.UtcNow)) == "71%",
-                "Other providers keep a single taskbar value", results);
+            Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null), new("extra · 5時間", 10, null)], DateTimeOffset.UtcNow)) == "71%(41%)",
+                "Codex with a 5-hour window shows weekly and 5-hour quota", results);
+            Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("週間", 80, null)], DateTimeOffset.UtcNow)) == "80%" &&
+                ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("週間", 71, null)], DateTimeOffset.UtcNow)) == "71%" &&
+                ClockTextRenderer.TaskbarValue(new Reading("Antigravity", [new("gemini-5h", 50, null), new("gemini-weekly", 90, null)], DateTimeOffset.UtcNow)) == "50%",
+                "Services without both windows keep a single taskbar value", results);
             Check(ClockTextRenderer.TaskbarName("Claude Code") == "Claude" && ClockTextRenderer.TaskbarName("Codex") == "Codex", "Taskbar shortens Claude Code to Claude", results);
             results.Add("All tests passed.");
 

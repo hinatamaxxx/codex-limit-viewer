@@ -52,7 +52,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 
 ## Claude Codeの連携
 
-[Claude Code CLI](https://code.claude.com/docs/en/setup)にログインすると、そのログイン情報（`~/.claude/.credentials.json`）を使ってAnthropicの使用状況APIに3分ごとに問い合わせ（APIが短い間隔の問い合わせを制限するため）、5時間・週間の残量とリセット時刻を表示します。残量はアカウント全体の値のため、Claude DesktopやWeb版での利用も反映されます。ログイン情報はAnthropicへの問い合わせだけに使い、本アプリが別の場所に保存・記録することはありません。CLIはモデルを呼び出すときにしかログインを更新しないため、有効期限（約8時間）が切れた場合は、本アプリがCLIと同じ手順で更新し、CLIのログイン情報ファイルに書き戻します（ほかの項目はそのまま残し、CLIが先に更新していればその値を使います）。タスクバーでは「Claude 80%(20%)」のように、週間の残りと、括弧内に5時間の残りを表示します。
+[Claude Code CLI](https://code.claude.com/docs/en/setup)にログインすると、そのログイン情報（`~/.claude/.credentials.json`）を使ってAnthropicの使用状況APIに3分ごとに問い合わせ（APIが短い間隔の問い合わせを制限するため）、5時間・週間の残量とリセット時刻を表示します。残量はアカウント全体の値のため、Claude DesktopやWeb版での利用も反映されます。ログイン情報はAnthropicへの問い合わせだけに使い、本アプリが別の場所に保存・記録することはありません。CLIはモデルを呼び出すときにしかログインを更新しないため、有効期限（約8時間）が切れた場合は、本アプリがCLIと同じ手順で更新し、CLIのログイン情報ファイルに書き戻します（ほかの項目はそのまま残し、CLIが先に更新していればその値を使います）。タスクバーでは「Claude 80%(20%)」のように、週間の残りと、括弧内に5時間の残りを表示します（5時間制限のあるプランのCodexも同じ形式で表示します）。
 
 ```powershell
 claude auth login
@@ -89,4 +89,4 @@ dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dis
 - 未署名のプレリリース版です。Windows 11（150% DPI環境）で動作確認を行っています。マルチモニタ（異なるDPI設定）や再起動直後の自動起動挙動は未検証です。
 - ライセンス: [MIT License](LICENSE)
 - 開発にはGPT-6 Sol（推論設定: Medium／中）のCodexを使用し、日本語・英語の公開文はGemini 3.8 Flash (High)（推論設定: High）で校正しました。
-- v0.1.3〜v0.1.9のClaude連携の修正・自動取得、詳細画面の表示順とリセット日時表示の改善、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。
+- v0.1.3〜v0.1.10のClaude連携の修正・自動取得、詳細画面の表示順とリセット日時表示の改善、アプリアイコンの作成、リリース作業にはClaude Code（Claude Opus 5.5、推論設定: Medium／中）を使用しました。
