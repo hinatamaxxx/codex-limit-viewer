@@ -34,7 +34,7 @@ internal static class ClockTextRenderer
                 dc.DrawText(label, new W.Point(6, Snap(y + (row - label.Height) / 2)));
                 M.Brush valueBrush = reading.Stale ? new M.SolidColorBrush(M.Color.FromRgb(190, 195, 207)) : M.Brushes.White;
                 double right = w - 6;
-                // Both windows read "weekly%(5-hour%)", e.g. "80%(20%)"; shrink the value rather than overlap the label.
+                // Both windows read "5-hour%(weekly%)" by default, e.g. "20%(80%)"; shrink the value rather than overlap the label.
                 var text = TaskbarValue(reading);
                 var value = Text(text, valueBrush);
                 for (double size = 11.5; size >= 9 && 6 + label.Width + 4 + value.Width > right; size -= 0.5) value = Text(text, valueBrush, size);
@@ -55,11 +55,13 @@ internal static class ClockTextRenderer
 
     // "Claude Code" leaves too little room for "80%(20%)" in the four-slot widget.
     internal static string TaskbarName(string provider) => provider == "Claude Code" ? "Claude" : provider;
+    internal static bool FiveHourFirst { get; set; } = true;
     internal static string TaskbarValue(Reading reading)
     {
         // Services with both a 5-hour and a weekly window (Claude Code, Codex on some plans) show both.
         var five = reading.Quotas.FirstOrDefault(q => q.Label == "5時間");
         var week = reading.Quotas.FirstOrDefault(q => q.Label == "週間");
-        return five != null && week != null ? $"{week.Remaining:0}%({five.Remaining:0}%)" : reading.Compact;
+        if (five == null || week == null) return reading.Compact;
+        return FiveHourFirst ? $"{five.Remaining:0}%({week.Remaining:0}%)" : $"{week.Remaining:0}%({five.Remaining:0}%)";
     }
 }

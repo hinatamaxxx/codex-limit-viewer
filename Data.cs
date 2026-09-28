@@ -15,6 +15,8 @@ internal sealed class Preferences
     public bool OpenDetailsOnHover { get; set; } = false;
     public string TaskbarTop { get; set; } = "Codex";
     public string TaskbarBottom { get; set; } = "Antigravity";
+    // true: "5-hour%(weekly%)"; false: "weekly%(5-hour%)".
+    public bool FiveHourFirst { get; set; } = true;
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");

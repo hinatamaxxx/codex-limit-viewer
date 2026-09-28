@@ -110,10 +110,14 @@ internal static class Verification
             order.SelectTaskbarProvider(false, "Grok", persist: false);
             var sorted = DetailsForm.OrderedReadings(order, new("Codex", [], null), new("Antigravity", [], null), null, new("Claude Code", [], null), new("Grok", [], null)).Select(r => r.Provider).ToArray();
             Check(sorted.SequenceEqual(new[] { "Claude Code", "Grok", "Codex", "Antigravity" }), "Details list starts with taskbar providers", results);
+            Check(new Preferences().FiveHourFirst && ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("5時間", 20.4, null), new("週間", 79.6, null)], DateTimeOffset.UtcNow)) == "20%(80%)",
+                "Taskbar shows 5-hour (weekly) by default", results);
+            ClockTextRenderer.FiveHourFirst = false;
             Check(ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("5時間", 20.4, null), new("週間", 79.6, null)], DateTimeOffset.UtcNow)) == "80%(20%)",
-                "Claude Code taskbar row shows weekly and 5-hour quota", results);
+                "Taskbar order can be switched to weekly (5-hour)", results);
             Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null), new("extra · 5時間", 10, null)], DateTimeOffset.UtcNow)) == "71%(41%)",
                 "Codex with a 5-hour window shows weekly and 5-hour quota", results);
+            ClockTextRenderer.FiveHourFirst = true;
             Check(ClockTextRenderer.TaskbarValue(new Reading("Codex", [new("週間", 80, null)], DateTimeOffset.UtcNow)) == "80%" &&
                 ClockTextRenderer.TaskbarValue(new Reading("Claude Code", [new("週間", 71, null)], DateTimeOffset.UtcNow)) == "71%" &&
                 ClockTextRenderer.TaskbarValue(new Reading("Antigravity", [new("gemini-5h", 50, null), new("gemini-weekly", 90, null)], DateTimeOffset.UtcNow)) == "50%",

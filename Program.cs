@@ -62,6 +62,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     internal TrayApplicationContext()
     {
         form = new(prefs);
+        ClockTextRenderer.FiveHourFirst = prefs.FiveHourFirst;
         prefs.Pinned = false;
         widget = new(new[] { tray, agyTray }.Concat(extraSlots).ToArray(), menu);
         widget.OpenDetails += () => { hoverOpened = false; if (form.Visible) form.HideImmediately(); else form.Reveal(true); };
@@ -114,6 +115,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 choice.Item.Checked = (choice.Top ? prefs.TaskbarTop : prefs.TaskbarBottom) == choice.Provider;
         }
         UpdateDisplayChoices();
+        displayMenu.DropDownItems.Add(new ToolStripSeparator());
+        var orderChoices = new[] { (FiveHourFirst: true, Label: L.T("5時間（週間）の順")), (FiveHourFirst: false, Label: L.T("週間（5時間）の順")) }
+            .Select(o => (o.FiveHourFirst, Item: new ToolStripMenuItem(o.Label))).ToArray();
+        foreach (var choice in orderChoices)
+        {
+            choice.Item.Click += (_, _) =>
+            {
+                prefs.FiveHourFirst = choice.FiveHourFirst; prefs.Save();
+                ClockTextRenderer.FiveHourFirst = choice.FiveHourFirst;
+                foreach (var c in orderChoices) c.Item.Checked = c.FiveHourFirst == prefs.FiveHourFirst;
+                Apply();
+            };
+            choice.Item.Checked = choice.FiveHourFirst == prefs.FiveHourFirst;
+            displayMenu.DropDownItems.Add(choice.Item);
+        }
         menu.Items.Add(displayMenu);
         var startup = new ToolStripMenuItem(L.T("Windows起動時に開始")) { CheckOnClick = true };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key?.GetValue("CodexLimitViewer") != null;

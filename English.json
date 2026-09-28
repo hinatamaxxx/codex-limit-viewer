@@ -46,6 +46,8 @@
     "ホバーで詳細を開く":  "Open details on hover",
     "タスクバー表示":  "Taskbar display",
     "上段":  "Top row",
+    "5時間（週間）の順":  "5-hour (weekly) order",
+    "週間（5時間）の順":  "Weekly (5-hour) order",
     "下段":  "Bottom row",
     "Codex Limit Viewer 表示スペース {++slotNumber}":  "Codex Limit Viewer display slot {++slotNumber}",
     "Windows起動時に開始":  "Start with Windows",
