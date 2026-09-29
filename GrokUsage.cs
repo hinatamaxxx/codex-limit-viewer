@@ -6,17 +6,7 @@ namespace CodexLimitViewer;
 
 internal static class GrokUsage
 {
-    internal static async Task<Reading> ReadLive(CancellationToken stop)
-    {
-        for (int attempt = 0; ; attempt++)
-        {
-            try { return await ReadOnce(stop); }
-            catch (GrokRpcException e) when (e.Code == -32603 && attempt == 0)
-            {
-                await Task.Delay(300, stop);
-            }
-        }
-    }
+    internal static Task<Reading> ReadLive(CancellationToken stop) => ReadOnce(stop);
 
     private static async Task<Reading> ReadOnce(CancellationToken stop)
     {
@@ -39,33 +29,33 @@ internal static class GrokUsage
         var stderr = proc.StandardError.ReadToEndAsync();
         try
         {
-            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.17"}}}""");
-            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"_x.ai/billing","params":{}}""");
-            await proc.StandardInput.FlushAsync(timeout.Token);
-            while (true)
+            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.18"}}}""");
+            // The CLI loads its sign-in in the background for a second or two after starting, and billing answers
+            // "invalid or expired credentials" until then, so ask again in the same process before giving up.
+            for (int attempt = 0; ; attempt++)
             {
-                var line = await proc.StandardOutput.ReadLineAsync(timeout.Token)
-                    ?? throw new IOException(L.T("Grok CLIとの接続が終了しました"));
-                if (!line.StartsWith('{')) continue;
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-                if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("id", out var id) ||
-                    id.ValueKind != JsonValueKind.Number || !id.TryGetInt32(out var number) || number != 2) continue;
-                if (root.TryGetProperty("error", out var error))
+                int requestId = 2 + attempt;
+                await proc.StandardInput.WriteLineAsync($$$"""{"jsonrpc":"2.0","id":{{{requestId}}},"method":"_x.ai/billing","params":{}}""");
+                await proc.StandardInput.FlushAsync(timeout.Token);
+                var root = await ReadResponse(proc, requestId, timeout.Token);
+                if (!root.TryGetProperty("error", out var error))
                 {
-                    if (error.TryGetProperty("code", out var code) && code.TryGetInt32(out var value) && value == -32601)
-                        throw new IOException(L.T("Grok CLIを更新してください"));
-                    // An expired sign-in comes back as an internal error whose data names the credentials.
-                    if (error.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String &&
-                        data.GetString()!.Contains("credentials", StringComparison.OrdinalIgnoreCase))
-                        throw new IOException(L.T("Grok CLIで再ログインしてください（grok login）"));
-                    if (error.TryGetProperty("code", out code) && code.TryGetInt32(out value))
-                        throw new GrokRpcException(value, L.T("Grok CLIの利用状況を取得できません"));
-                    throw new IOException(L.T("Grok CLIの利用状況を取得できません"));
+                    if (!root.TryGetProperty("result", out var result))
+                        throw new IOException(L.T("Grokの週次残量は利用できません"));
+                    return Parse(result, DateTimeOffset.UtcNow);
                 }
-                if (!root.TryGetProperty("result", out var result))
-                    throw new IOException(L.T("Grokの週次残量は利用できません"));
-                return Parse(result, DateTimeOffset.UtcNow);
+                if (error.TryGetProperty("code", out var code) && code.TryGetInt32(out var value) && value == -32601)
+                    throw new IOException(L.T("Grok CLIを更新してください"));
+                bool authPending = error.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String &&
+                    data.GetString()!.Contains("credentials", StringComparison.OrdinalIgnoreCase);
+                bool internalError = error.TryGetProperty("code", out code) && code.TryGetInt32(out value) && value == -32603;
+                if ((authPending || internalError) && attempt < 7)
+                {
+                    await Task.Delay(1000, timeout.Token);
+                    continue;
+                }
+                // Still refused after several seconds: the sign-in really is missing or expired.
+                throw new IOException(authPending ? L.T("Grok CLIで再ログインしてください（grok login）") : L.T("Grok CLIの利用状況を取得できません"));
             }
         }
         finally
@@ -76,9 +66,18 @@ internal static class GrokUsage
         }
     }
 
-    private sealed class GrokRpcException(int code, string message) : IOException(message)
+    private static async Task<JsonElement> ReadResponse(Process proc, int requestId, CancellationToken ct)
     {
-        internal int Code { get; } = code;
+        while (true)
+        {
+            var line = await proc.StandardOutput.ReadLineAsync(ct) ?? throw new IOException(L.T("Grok CLIとの接続が終了しました"));
+            if (!line.StartsWith('{')) continue;
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("id", out var id) &&
+                id.ValueKind == JsonValueKind.Number && id.TryGetInt32(out var number) && number == requestId)
+                return root.Clone();
+        }
     }
 
     internal static Reading Parse(JsonElement result, DateTimeOffset captured)

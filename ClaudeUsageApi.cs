@@ -18,8 +18,8 @@ internal static class ClaudeUsageApi
     private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static DateTimeOffset retryAfter = DateTimeOffset.MinValue;
 
-    // The usage endpoint rate-limits frequent polling, so ask at most every few minutes and reuse the last answer in between.
-    internal static readonly TimeSpan MinimumInterval = TimeSpan.FromMinutes(3);
+    // Just under the 60-second poll, so every poll asks; a 429 backs off and the last values stay on screen meanwhile.
+    internal static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(55);
     private static string CachePath => Path.Combine(Preferences.Folder, "claude-usage-cache.json");
 
     // Last successful reading (quota numbers only, never credentials), so a restart or a 429 shows grayed values instead of "—".
@@ -61,7 +61,7 @@ internal static class ClaudeUsageApi
         using var response = await SendUsage(token.Access, stop);
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
-            retryAfter = DateTimeOffset.UtcNow + (response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(5));
+            retryAfter = DateTimeOffset.UtcNow + (response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(2));
             throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
         }
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
