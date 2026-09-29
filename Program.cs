@@ -57,7 +57,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Reading codex = new("Codex", [], null), agy = new("Antigravity", [], null);
     private Reading? claude = ClaudeUsageApi.LoadCache();
     private Reading grok = new("Grok", [], null);
-    private bool busy, closing, hoverOpened;
+    private bool busy, closing, hoverOpened, forceQueued;
 
     internal TrayApplicationContext()
     {
@@ -180,7 +180,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     // force: a manual refresh, which asks Claude right away instead of waiting out the polling interval.
     private async Task Refresh(bool force = false)
     {
-        if (busy || closing) return;
+        // A manual refresh during a running one is replayed right after it, not dropped.
+        if (busy) { forceQueued |= force; return; }
+        if (closing) return;
         busy = true; Apply();
         var agyTask = RefreshAntigravity();
         var grokTask = RefreshGrok();
@@ -193,7 +195,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             // Always clear busy, or one unexpected provider error would stop every later refresh.
             try { await Task.WhenAll(agyTask, grokTask, claudeTask); }
             catch (Exception) { }
-            finally { busy = false; if (!closing) Apply(); }
+            finally
+            {
+                busy = false;
+                if (!closing) Apply();
+                if (forceQueued && !closing) { forceQueued = false; _ = Refresh(force: true); }
+            }
         }
     }
     private async Task RefreshAntigravity()
