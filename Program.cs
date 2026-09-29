@@ -83,9 +83,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         menu.TrayAnchor = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray) ?? new Rectangle(Cursor.Position, Size.Empty);
-        form.RefreshRequested += () => _ = Refresh();
+        form.RefreshRequested += () => _ = Refresh(force: true);
         menu.Items.Add(L.T("パネルを開く"), null, (_, _) => { menu.CloseForAction(); hoverOpened = false; form.Reveal(true); });
-        menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => { menu.CloseForAction(); _ = Refresh(); });
+        menu.Items.Add(L.T("今すぐ更新"), null, (_, _) => { menu.CloseForAction(); _ = Refresh(force: true); });
         var hoverOption = new ToolStripMenuItem(L.T("ホバーで詳細を開く")) { CheckOnClick = true, Checked = prefs.OpenDetailsOnHover };
         hoverOption.CheckedChanged += (_, _) => { prefs.OpenDetailsOnHover = hoverOption.Checked; prefs.Save(); widget.UpdateTooltip(); };
         menu.Items.Add(hoverOption);
@@ -177,17 +177,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (prefs.Pinned) { form.PositionAtTray(); form.Show(); }
         _ = Refresh();
     }
-    private async Task Refresh()
+    // force: a manual refresh, which asks Claude right away instead of waiting out the polling interval.
+    private async Task Refresh(bool force = false)
     {
         if (busy || closing) return;
         busy = true; Apply();
         var agyTask = RefreshAntigravity();
         var grokTask = RefreshGrok();
-        var claudeTask = RefreshClaude();
+        var claudeTask = RefreshClaude(force);
         try { codex = await Providers.Codex(stop.Token); }
         catch (OperationCanceledException) { codex = codex with { Error = L.T("接続がタイムアウトしました") }; }
         catch (Exception e) { codex = codex with { Error = e.Message }; }
-        finally { await Task.WhenAll(agyTask, grokTask, claudeTask); busy = false; if (!closing) Apply(); }
+        finally
+        {
+            // Always clear busy, or one unexpected provider error would stop every later refresh.
+            try { await Task.WhenAll(agyTask, grokTask, claudeTask); }
+            catch (Exception) { }
+            finally { busy = false; if (!closing) Apply(); }
+        }
     }
     private async Task RefreshAntigravity()
     {
@@ -195,15 +202,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (OperationCanceledException) { agy = agy with { Error = L.T("取得がタイムアウトしました") }; }
         catch (Exception e) { agy = agy with { Error = e.Message }; }
     }
-    private async Task RefreshClaude()
+    private async Task RefreshClaude(bool force)
     {
         // Prefer the account-wide API; fall back to the status line snapshot, keeping the last values grayed out on failure.
-        try { claude = await ClaudeUsageApi.ReadLive(stop.Token); return; }
-        catch (Exception e) when (e is OperationCanceledException or IOException or HttpRequestException or JsonException)
+        try { claude = await ClaudeUsageApi.ReadLive(stop.Token, force); return; }
+        catch (Exception e)
         {
             Reading? snapshot;
             try { snapshot = ClaudeCodeUsage.ReadSnapshot(); } catch (Exception) { snapshot = null; }
-            var message = e is OperationCanceledException ? L.T("取得がタイムアウトしました") : e.Message;
+            var message = e is OperationCanceledException ? L.T("取得がタイムアウトしました")
+                : e is IOException or HttpRequestException ? e.Message : L.T("Claudeの使用状況を取得できません");
             if (snapshot is { Quotas.Count: > 0 } && !snapshot.Stale) claude = snapshot;
             else if (claude is { Quotas.Count: > 0 }) claude = claude with { Error = message };
             else claude = snapshot is { Quotas.Count: > 0 } ? snapshot : new Reading("Claude Code", [], null, message);

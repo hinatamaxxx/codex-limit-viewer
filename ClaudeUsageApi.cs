@@ -48,9 +48,12 @@ internal static class ClaudeUsageApi
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    internal static async Task<Reading> ReadLive(CancellationToken stop)
+    // A manual refresh may ask sooner, but never more than once every 30 seconds.
+    private static readonly TimeSpan ManualInterval = TimeSpan.FromSeconds(30);
+
+    internal static async Task<Reading> ReadLive(CancellationToken stop, bool force = false)
     {
-        if (LoadCache() is { } cached && DateTimeOffset.UtcNow - cached.Updated < MinimumInterval) return cached;
+        if (LoadCache() is { } cached && DateTimeOffset.UtcNow - cached.Updated < (force ? ManualInterval : MinimumInterval)) return cached;
         if (DateTimeOffset.UtcNow < retryAfter) throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
         var token = ReadToken() ?? throw new IOException(L.T("Claude Code CLIでログインしてください"));
         // The CLI only renews its sign-in when it calls the model, so an idle CLI leaves the token expired.

@@ -232,13 +232,18 @@ internal sealed class DetailsForm : Form
         foreach (Control c in list.Controls.Cast<Control>().Concat(footer.Controls.Cast<Control>()).ToArray()) { c.Parent!.Controls.Remove(c); c.Dispose(); }
         int y = 0, fy = 0, revealY = -1, openedSpace = 0, openedCount = 0;
         // Each service gets its own framed card so its quotas read as one group.
-        foreach (var reading in OrderedReadings(prefs, codex, agy, claude, grok))
+        var ordered = OrderedReadings(prefs, codex, agy, claude, grok).ToList();
+        // Only folded cards after the last opened one go to the footer, so opening a lower card never swaps the order.
+        int lastOpened = ordered.FindLastIndex(r => openedProviders.Contains(r.Provider) && r.Provider != prefs.TaskbarTop && r.Provider != prefs.TaskbarBottom);
+        for (int index = 0; index < ordered.Count; index++)
         {
+            var reading = ordered[index];
             // Services not shown in the taskbar can be folded to a one-line summary by clicking their header.
             bool foldable = reading.Provider != prefs.TaskbarTop && reading.Provider != prefs.TaskbarBottom;
             bool folded = foldable && !openedProviders.Contains(reading.Provider);
-            var card = new ProviderCard { Location = new Point(0, folded ? fy : y), Width = 378 };
-            (folded ? footer : list).Controls.Add(card);
+            bool inFooter = folded && index > lastOpened;
+            var card = new ProviderCard { Location = new Point(0, inFooter ? fy : y), Width = 378 };
+            (inFooter ? footer : list).Controls.Add(card);
             if (reading.Provider == revealProvider && !folded) revealY = y;
             var color = reading.Provider == "Codex" ? Mint : Violet;
             int cy = 10;
@@ -261,7 +266,8 @@ internal sealed class DetailsForm : Form
             if (folded)
             {
                 card.Height = cy + 36;
-                fy += card.Height + 8;
+                if (inFooter) fy += card.Height + 8;
+                else { y += card.Height + 14; openedSpace += card.Height + 14; openedCount++; }
                 continue;
             }
             cy += 36;
