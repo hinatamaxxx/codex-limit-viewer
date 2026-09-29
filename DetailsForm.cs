@@ -19,6 +19,8 @@ internal sealed class DetailsForm : Form
     // Folded services stay pinned under the scrolling list so they are always in view.
     private readonly BufferedPanel footer = new() { BackColor = Color.FromArgb(32, 32, 36) };
     private int footerHeight;
+    // Height the popup would need with every foldable card folded; opening a card never resizes the popup.
+    private int baselineHeight;
     private string? revealProvider;
     // Folded services the reader opened; cleared each time the popup opens so they start folded again.
     private readonly HashSet<string> openedProviders = [];
@@ -177,7 +179,7 @@ internal sealed class DetailsForm : Form
         expanded = value;
         if (value) RebuildRows();
         // Fit the popup to what the cards show (folded cards sit in the fixed footer).
-        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24, Math.Clamp(92 + contentHeight + (footerHeight > 0 ? footerHeight + 10 : 0), 220, 720));
+        int expandedHeight = Math.Min(Screen.FromRectangle(Bounds).WorkingArea.Height - 24, Math.Clamp(92 + baselineHeight, 220, 720));
         target = value ? new Size(460, expandedHeight) : new Size(344, 54);
         ClientSize = target; ClampPosition();
         LayoutButtons(); Invalidate();
@@ -228,7 +230,7 @@ internal sealed class DetailsForm : Form
         list.AutoScrollPosition = Point.Empty;
         list.SuspendLayout();
         foreach (Control c in list.Controls.Cast<Control>().Concat(footer.Controls.Cast<Control>()).ToArray()) { c.Parent!.Controls.Remove(c); c.Dispose(); }
-        int y = 0, fy = 0, revealY = -1;
+        int y = 0, fy = 0, revealY = -1, openedSpace = 0, openedCount = 0;
         // Each service gets its own framed card so its quotas read as one group.
         foreach (var reading in OrderedReadings(prefs, codex, agy, claude, grok))
         {
@@ -281,9 +283,14 @@ internal sealed class DetailsForm : Form
             }
             card.Height = cy + 6;
             y += card.Height + 14;
+            if (foldable) { openedSpace += card.Height + 14; openedCount++; }
         }
         contentHeight = Math.Max(0, y - 14);
         footerHeight = Math.Max(0, fy - 8);
+        // Folded cards are 46 px tall with 8 px gaps in the footer.
+        int baseContent = Math.Max(0, y - openedSpace - 14);
+        int baseFooter = fy + openedCount * (46 + 8) - 8;
+        baselineHeight = baseContent + (baseFooter > 0 ? baseFooter + 10 : 0);
         list.AutoScrollMinSize = new Size(0, contentHeight);
         list.ResumeLayout();
         // A card just opened from the footer scrolls into view; otherwise keep the reader's position.
