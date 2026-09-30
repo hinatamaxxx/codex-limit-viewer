@@ -2,107 +2,119 @@
 
 # Codex Limit Viewer
 
-[Download the v1.0.0 release](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0)
+[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0) · [日本語](README.md)
 
-[日本語](README.md)
+See your remaining AI quota in two rows in the Windows 11 system tray. Choose two services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
 
-A sleek, lightweight Windows 11 system tray application that continuously displays remaining quota for two selected services in a two-line layout. Codex and Antigravity CLI (`agy`) are selected by default.
-
-![Taskbar Preview](docs/taskbar.png)
+![Taskbar display](docs/taskbar.png)
 
 ## Features
 
-- **Always Visible**: Glance at your remaining quota percentage directly in your Windows 11 notification area without interrupting your work.
-- **Choose Two Rows**: Select Codex, Antigravity, Claude Code, or Grok for the top and bottom rows from the right-click menu. Selecting an item already in the other row automatically swaps them.
-- **Details on Hover**: Off by default. When enabled, hovering displays per-bucket quota, the reset date and time (today, tomorrow, or weekday and date) with the time left, and the last updated timestamp in a smooth fade popup. It fades out as soon as the pointer leaves both the display and popup. When disabled, a centered tooltip shows the app name. The details popup frames each service in its own card and lists the services shown in the taskbar rows first. Services not shown in the taskbar fold into a one-line summary pinned to the bottom; click the header to open one (the popup keeps its size; the card moves into the list and scrolls into view) or fold it again. Reopening the popup folds them again. Reopening the popup scrolls back to the top.
-- **Multi-Service Integration**: Polls Codex (the desktop app's bundled binary or standalone Codex CLI), Antigravity (`agy`), and the official Grok Build CLI every 60 seconds. Claude quota is fetched every minute (the last values are kept across restarts) using your [Claude Code CLI](https://code.claude.com/docs/en/setup) sign-in. The app never stores or transmits credentials, except for sending the Claude sign-in token to Anthropic and renewing the CLI sign-in when it expires.
-- **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`) in the details popup. Choose Grok for either taskbar row in the right-click menu.
-- **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
-- **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
-- **Setup and Portable Editions**: Setup installs to one fixed location and replaces the existing app during updates. The portable edition runs from its extracted folder. Only one copy can run in the same Windows session, including across both editions. Installation and startup use files and shortcuts without modifying the registry.
+- Check your remaining quota from the taskbar while you work.
+- Click to see quota by service, reset times, and the last fetch time.
+- Optionally open details on hover; this is off by default.
+- Choose services and switch between Japanese and English from the right-click menu.
+- Optionally start the app when you sign in to Windows; this is off by default.
 
-![Sample Preview](docs/preview-en.png)
+![Quota details](docs/preview-en.png)
 
-## Getting Started
+## Prepare your services
 
-1. **Prerequisites**:
-   - **Codex**: Install and sign in to the Codex desktop app, or install the standalone [Codex CLI](https://github.com/openai/codex). Codex requires a local `codex.exe`.
-   - **Antigravity**: To display Antigravity quota, install the [Antigravity CLI (`agy`)](https://antigravity.google/docs/cli-install). Note: with agy 1.2.12, `agy -p /usage` is sometimes sent to the model as a prompt (about 12k tokens per call) instead of running the command. When the app detects this, it stops fetching Antigravity for the session so no quota is wasted.
-   - **Claude**: To display Claude quota, install the [Claude Code CLI](https://code.claude.com/docs/en/setup) and sign in with `claude auth login`. This also works if you mainly use Claude Desktop, as long as the CLI is signed in to the same account.
-   - **Grok**: To display Grok quota, install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and sign in with `grok login`.
-   *Note: This application does not bundle CLI tools.*
-2. **Download**:
-   Choose `Setup-win-x64.exe` for regular use or `portable-win-x64.zip` for a portable copy from [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases).
-3. **Install**:
-   Double-click the setup EXE. Updates replace the app in the same folder, keeping one installed version. Setup adds a Start Menu entry and requires no administrator privileges.
-   - Install path: `%LOCALAPPDATA%/Programs/CodexLimitViewer`
-   - Data directory: `%LOCALAPPDATA%/CodexLimitViewer`
-   - Portable edition: Extract the ZIP and run `CodexLimitViewer.exe`. Settings and quota cache are stored in the adjacent `Data` folder. Claude Code status-line integration files and CLI sign-ins are shared with the installed edition. Keep `portable.flag` in place.
-4. **Taskbar Settings**:
-   Open Windows **Settings > Personalization > Taskbar > Other system tray icons**, turn on all four tray icons for this application, and keep the four slots adjacent on the taskbar.
+**Set up only the services you want to display.** CLI tools are not bundled with this app. Sign in to an account with a quota for each service you use.
+
+| Service | What you need |
+| --- | --- |
+| Codex | Install and sign in to the Codex desktop app or [Codex CLI](https://github.com/openai/codex). A local `codex.exe` is required. |
+| Antigravity | Install and sign in to [Antigravity CLI (agy)](https://antigravity.google/docs/cli-install). See the limitation below. |
+| Claude | Install [Claude Code CLI](https://code.claude.com/docs/en/setup) and run `claude auth login`. To show quota for your Claude Desktop or web account, sign in to the CLI with the same account. |
+| Grok | Install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and run `grok login`. The app displays the CLI's weekly quota. |
+
+Antigravity quota may be unavailable with some agy versions. With agy 1.2.12, the quota command can run as a model prompt and consume quota. If the app detects this, it stops fetching Antigravity until the app is restarted.
+
+## Download and start
+
+### Setup edition
+
+Choose this edition for regular use.
+
+1. Download `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0).
+2. Run the EXE and click “Install.” No administrator privileges are required.
+3. After installation, launch “Codex Limit Viewer” from the Start Menu.
 
 ![Setup window](docs/setup-en.png)
 
-To update, run the new setup EXE again. Your settings are kept, and the installation folder stays the same.
+### Portable edition
 
-## Usage
+Choose this edition to run the app from an extracted folder without installation.
 
-![Codex Limit Viewer](docs/menu-en.png)
+1. Download and extract `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`.
+2. Run `CodexLimitViewer.exe` in the folder.
 
-- **Hover**: Opens the details popup (disabled by default). It fades out immediately after the pointer leaves both the tray display and the popup. When disabled, a centered tooltip shows the app name.
-- **Left-Click**: Toggles the details popup. A popup opened by click closes immediately upon another click or clicking outside.
-- **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit). Changing displayed items or toggles keeps the menu open; click outside to dismiss it.
-- **Displayed Services**: In the right-click menu, hover over "Taskbar display" then "Top row" or "Bottom row", and click your desired service (Codex, Antigravity, Claude Code, or Grok). The taskbar stays at two rows.
-- **Startup**: Opt-in during setup or via the right-click menu (disabled by default). A single shortcut is created in the Startup folder. If you move a portable folder, turn startup off and on again to update its path.
+Keep `portable.flag` in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
 
-If you enabled startup in an earlier version, disable its old entry in Windows **Settings > Apps > Startup**. Turning startup off in this version does not change registry settings created by an earlier version.
+### Keep the display visible
 
-## Claude Code Integration
+In Windows **Settings → Personalization → Taskbar → Other system tray icons**, turn on **all four tray icons** for this app. Keep the four icons adjacent to form the two-row quota display.
 
-After you sign in to the [Claude Code CLI](https://code.claude.com/docs/en/setup), the app uses that sign-in (`~/.claude/.credentials.json`) to query Anthropic’s usage API every minute (when rate-limited, it waits and keeps showing the last values) and shows the 5-hour and weekly remaining quota with reset times. The quota is account-wide, so usage from Claude Desktop and the web is included. The token is only sent to Anthropic and is never stored elsewhere or logged by this app. Because the CLI only renews its sign-in when it calls the model, the app renews an expired sign-in (about every 8 hours) the same way the CLI does and writes it back to the CLI credentials file, keeping all other fields and preferring the CLI’s own renewal if it happened first. The taskbar row reads like “Claude 20%(80%)”: 5-hour remaining, with the weekly remaining in parentheses (Codex plans with a 5-hour limit use the same format). Switch to “Weekly (5-hour) order” under Taskbar display in the right-click menu.
+## Using the app
 
-```powershell
-claude auth login
-```
+![Right-click menu](docs/menu-en.png)
 
-This is an undocumented internal API and may change. If it is unavailable, the [official status line](https://code.claude.com/docs/en/statusline) bridge can supply values after CLI responses. Enable it by running the bundled `EnableClaudeCode.ps1` once. For the setup edition, run the following in PowerShell. For the portable edition, run the script of the same name in the extracted folder.
+| Action | Result |
+| --- | --- |
+| Left-click | Open details. Click again or outside the popup to close it. |
+| Right-click | Choose displayed services, refresh now, change hover behavior, select a language, or set startup. Choose “Exit” to stop the app. |
+| “Taskbar display” → “Top row / Bottom row” | Choose a service. Selecting the service already in the other row swaps the rows. |
+| Enable “Open details on hover” | Hover over the quota display to open details. Move the pointer outside both the display and popup to close it. |
+
+Details list your taskbar services first. Other services are folded at the bottom; click a heading to open its contents.
+
+For Codex and Claude plans with both 5-hour and weekly quotas, a value such as “20%(80%)” shows 5-hour remaining first and weekly remaining in parentheses. Choose “Weekly (5-hour) order” under “Taskbar display” to reverse the order.
+
+Quota normally refreshes every minute. During rate limits, the app keeps the last values. Previously fetched values turn gray if fetching fails; “—” means no value has been fetched yet.
+
+![Grok in the bottom row](docs/grok-taskbar.png)
+
+## Startup and updates
+
+Enable startup in setup or from the right-click menu. If you move a portable folder, turn startup off and on again to update its path.
+
+To update the setup edition, run the new setup EXE. It keeps your settings and replaces the app in the same folder. The install folder is `%LOCALAPPDATA%\Programs\CodexLimitViewer`; settings and cache are in `%LOCALAPPDATA%\CodexLimitViewer`.
+
+To update the portable edition, exit the app and extract the new ZIP. To keep your settings, copy the original `Data` folder beside the new EXE. Update startup settings if the folder changes.
+
+If startup is duplicated after moving from an earlier version, disable the old entry in Windows **Settings → Apps → Startup**.
+
+## If Claude quota is missing
+
+First run `claude auth login` in Claude Code CLI to check your sign-in. The app normally uses this sign-in to fetch 5-hour and weekly quota. Quota is account-wide, so usage from Claude Desktop and the web is included.
+
+Automatic fetching uses an undocumented Anthropic API that may change. If it becomes unavailable, enable the [official status line](https://code.claude.com/docs/en/statusline) bridge to display quota supplied after Claude Code CLI responses. For the setup edition, run this once in PowerShell:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\CodexLimitViewer\EnableClaudeCode.ps1"
 ```
 
-Missing data appears as “—”, never as 0%.
+For the portable edition, run `EnableClaudeCode.ps1` in the extracted folder. This bridge updates when you use Claude Code CLI.
 
-## Grok Integration
+## Data and sign-ins
 
-Install the official Grok Build CLI and sign in with `grok login` to see the remaining weekly quota and reset time. This is not a separate per-chat limit for the web version. The app queries the CLI's read-only interface without reading or storing credentials. It refreshes every 60 seconds and shows “—” instead of a misleading 0% when data is unavailable.
+Settings and quota cache are stored on this PC. The app uses Claude's sign-in only for quota requests and authentication renewal with Anthropic. If it expires, the app renews the CLI sign-in and writes it back to the CLI credentials file. Credentials are not copied to a separate app-owned location or written to logs.
 
-![Example with Grok in the bottom row](docs/grok-taskbar.png)
-
-To add another provider, give this repository URL to a coding assistant and ask it to implement support.
-
-## Building from Source (Optional)
-
-Build a self-contained binary (no external runtime installation required) using the .NET 10 SDK:
-
-```bash
-dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dist
-```
-
-To build both distribution editions, run `powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/BuildRelease.ps1`. The setup EXE, portable ZIP, and SHA-256 list are created in `release/v<version>/`.
+Installation and startup settings do not change the registry. The app is not listed in Windows Settings → Installed apps; use the Start Menu to launch or uninstall it.
 
 ## Uninstalling
 
-For the setup edition, open “Uninstall Codex Limit Viewer” from the Start Menu. It also removes the app and startup shortcuts. Settings and cache are kept by default; choose to remove them in the uninstall window if desired. The Claude Code status-line script is retained so that integration keeps working. This registry-free setup uses the Start Menu for management instead of registering under Windows Settings > Installed apps. Registry entries from earlier versions are left unchanged.
+- **Setup edition**: Open “Uninstall Codex Limit Viewer” from the Start Menu. Settings and cache are kept by default, with an option to remove them. The Claude Code status-line bridge script is retained.
+- **Portable edition**: Disable startup, exit the app, and delete the extracted folder.
 
-For the portable edition, disable startup, exit the app, and delete its extracted folder.
+Disable startup entries created by earlier versions through their settings or Windows “Startup.”
 
-## Notes
+## Requirements and limitations
 
-- Unofficial application.
-- Unsigned Windows x64 software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
-- v1.0.0 is the first non-prerelease version, carrying forward the features of v0.1.19. Repeated installation, updates and uninstallation, and portable settings isolation were checked in v0.1.19. For v1.0.0, the distributed ZIP's self-tests, an update preserving settings, package contents, and SHA-256 checksums were checked. Live quota fetching from the services was not retested for v1.0.0.
-- License: [MIT License](LICENSE)
-- Codex with GPT-6 Sol (reasoning effort: Medium) was used for v0.1.0–v0.1.2 development.
-- Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.18 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.
-- Codex with GPT-6.1 Sol was used for the v0.1.19 setup and portable editions (reasoning effort: Ultra) and the v1.0.0 release work (reasoning effort: High). The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
+- Unofficial, unsigned app for Windows 11 x64. No additional .NET runtime installation is required.
+- Mixed-DPI monitors and startup after a reboot are unverified.
+- Service or CLI changes may prevent quota fetching. Grok support covers the Grok Build CLI weekly quota, not separate per-chat limits on the web.
+- Available under the [MIT License](LICENSE).
+
+Development assistance: Codex (GPT-6 Sol / Medium, GPT-6.1 Sol / Ultra and High) and Claude Code (Claude Opus 5.5 / Medium). Japanese and English proofreading: Gemini 3.8 Flash (High) / High. The values following each model name are reasoning-effort settings.

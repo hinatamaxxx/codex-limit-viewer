@@ -2,38 +2,38 @@
 
 ## 日本語
 
-Windows 11の通知領域で利用枠の残量を確認できるCodex Limit Viewerを、v1.0.0として正式リリースしました。v0.1.19の機能をそのまま引き継ぎ、アプリとセットアップのバージョンを1.0.0にそろえています。
+Windows 11の通知領域で、AIサービスの利用枠の残り割合をひと目で確認できます。Codex、Antigravity CLI、Claude Code、Grok Build CLIから2つを選んで表示し、クリックでリセット日時などの詳細を開けます。日本語が初期設定で、英語にも切り替えられます。
 
-- Codex、Antigravity CLI、Claude Code、Grok Build CLIから、タスクバーに表示する2つのサービスを選択できます。
-- クリックで残量・リセット日時・取得時刻の詳細を表示できます。ホバーでの詳細表示は任意で有効にできます。
-- 日本語が初期設定で、英語に切り替えられます。
-- セットアップ版は同じフォルダへ更新し、設定を引き継ぎます。インストールと自動起動の設定ではレジストリを変更しません。
+![タスクバーの表示例](https://raw.githubusercontent.com/hinatamaxxx/codex-limit-viewer/v1.0.0/docs/taskbar.png)
 
-**通常利用**: `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe`を実行してください。管理者権限は不要です。旧セットアップ版からの更新も同じ手順です。スタートメニューに起動・アンインストールの項目を追加し、自動起動は任意で有効にできます。
+### ダウンロード
 
-**portable版**: `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`を展開して`CodexLimitViewer.exe`を起動します。設定と残量キャッシュは隣の`Data`フォルダに保存します。`portable.flag`は削除しないでください。CLIのログイン情報とClaude Codeのstatus line連携用ファイルはセットアップ版と共通です。
+- **セットアップ版**: `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe`を実行してインストールします。管理者権限は不要です。スタートメニューから起動・アンインストールできます。更新時は設定を保ったまま同じフォルダのアプリを置き換えます。
+- **portable版**: `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`を展開し、`CodexLimitViewer.exe`を起動します。設定と残量キャッシュは隣の`Data`フォルダに保存します。`portable.flag`は削除しないでください。
+- **SHA256SUMS.txt**: ダウンロードしたファイルのSHA-256を照合するための一覧です。
 
-利用したいサービスのCLIなどに、あらかじめログインしてください。Antigravityはagyのバージョンによって残量を取得できない場合があります。準備、旧版の自動起動、アンインストールの手順は[日本語ガイド](https://github.com/hinatamaxxx/codex-limit-viewer/blob/v1.0.0/README.md)を参照してください。
+利用するサービスのCLIなどに、あらかじめログインしてください。通知領域の表示設定で本アプリの4つのアイコンをすべてオンにし、隣り合うように並べます。自動起動とホバーでの詳細表示は任意で有効にできます。インストールと自動起動の設定ではレジストリを変更しません。
 
-Windows x64向けの自己完結型・未署名アプリです。配布ZIPの自己テスト、設定を引き継ぐ更新、配布内容とSHA-256を確認しました。サービスからの実際の残量取得はこの版では再検証していません。再起動後の自動起動と異なるDPIのマルチモニタ環境は未検証です。チェックサムは`SHA256SUMS.txt`で確認できます。
+Windows 11 x64向けの非公式・未署名アプリです。追加の.NETランタイムは不要です。Antigravityはagyのバージョンによって残量を取得できない場合があります。異なる表示倍率の複数モニターと、再起動後の自動起動は動作未確認です。
 
-v1.0.0のリリース作業にはCodex（GPT-6.1 Sol、推論設定: High）を使用し、日本語・英語の公開文はGemini 3.8 Flash (High)（推論設定: High）で校正しました。
+[準備・使い方・更新・削除の手順](https://github.com/hinatamaxxx/codex-limit-viewer/blob/v1.0.0/README.md)
 
 ## English
 
-Codex Limit Viewer is now released as v1.0.0, bringing AI quota information to the Windows 11 system tray. It carries forward the features of v0.1.19, with both the app and setup version set to 1.0.0.
+See your remaining AI quota at a glance in the Windows 11 system tray. Choose two services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI, then click to view details such as reset times. Japanese is the default language; English is also available.
 
-- Choose two taskbar services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
-- Click to see remaining quota, reset times, and fetch times. Optionally enable details on hover.
-- Japanese is the default language; English is available in the menu.
-- Setup updates the app in the same folder while keeping settings. Installation and startup settings do not change the registry.
+### Downloads
 
-**Regular use**: Run `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe`. No administrator privileges are required. Use the same steps to update an existing setup installation. Setup adds app and uninstall entries to the Start Menu, with optional startup at sign-in.
+- **Setup edition**: Run `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe` to install. No administrator privileges are required. Launch or uninstall the app from the Start Menu. Updates replace it in the same folder while keeping settings.
+- **Portable edition**: Extract `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip` and run `CodexLimitViewer.exe`. Settings and quota cache are stored in the adjacent `Data` folder. Keep `portable.flag` in place.
+- **SHA256SUMS.txt**: Use this list to verify the SHA-256 of downloaded files.
 
-**Portable edition**: Extract `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip` and run `CodexLimitViewer.exe`. Settings and quota cache are stored in the adjacent `Data` folder. Keep `portable.flag` in place. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition.
+Sign in to the CLI or app needed for each service first. In Windows tray settings, enable all four icons for this app and keep them adjacent. Startup and details on hover are optional. Installation and startup settings do not change the registry.
 
-Sign in to the CLI or app required by each service first. Antigravity quota may be unavailable with some agy versions. See the [English guide](https://github.com/hinatamaxxx/codex-limit-viewer/blob/v1.0.0/README.en.md) for prerequisites, startup entries from earlier versions, and uninstall instructions.
+This is an unofficial, unsigned Windows 11 x64 app. No additional .NET runtime is required. Antigravity quota may be unavailable with some agy versions. Mixed-DPI monitors and startup after a reboot are unverified.
 
-This is a self-contained, unsigned Windows x64 app. The distributed ZIP's self-tests, an update preserving settings, package contents, and SHA-256 checksums were checked. Live service quota fetching was not retested for this version. Startup after a reboot and mixed-DPI monitors remain unverified. Checksums are provided in `SHA256SUMS.txt`.
+[Setup, usage, update, and uninstall instructions](https://github.com/hinatamaxxx/codex-limit-viewer/blob/v1.0.0/README.en.md)
 
-The v1.0.0 release work used Codex with GPT-6.1 Sol (reasoning effort: High). The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
+---
+
+制作協力 / Development assistance: Codex (GPT-6 Sol / Medium, GPT-6.1 Sol / Ultra・High), Claude Code (Claude Opus 5.5 / Medium). 公開文校正 / Proofreading: Gemini 3.8 Flash (High) / High. モデル名の後ろは推論設定です / Values after model names are reasoning-effort settings.
