@@ -2,6 +2,8 @@
 
 # Codex Limit Viewer
 
+[Download the v1.0.0 release](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0)
+
 [日本語](README.md)
 
 A sleek, lightweight Windows 11 system tray application that continuously displays remaining quota for two selected services in a two-line layout. Codex and Antigravity CLI (`agy`) are selected by default.
@@ -98,9 +100,9 @@ For the portable edition, disable startup, exit the app, and delete its extracte
 ## Notes
 
 - Unofficial application.
-- Unsigned pre-release software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
-- v0.1.19 was checked for repeated installation, updates and uninstallation, settings preservation, portable settings isolation, and self-tests. Live quota fetching from the services was not retested for this version.
+- Unsigned Windows x64 software tested on Windows 11 at 150% DPI. Mixed-DPI configurations and reboot startup behavior are unverified.
+- v1.0.0 is the first non-prerelease version, carrying forward the features of v0.1.19. Repeated installation, updates and uninstallation, and portable settings isolation were checked in v0.1.19. For v1.0.0, the distributed ZIP's self-tests, an update preserving settings, package contents, and SHA-256 checksums were checked. Live quota fetching from the services was not retested for v1.0.0.
 - License: [MIT License](LICENSE)
 - Codex with GPT-6 Sol (reasoning effort: Medium) was used for v0.1.0–v0.1.2 development.
 - Claude Code with Claude Opus 5.5 (reasoning effort: Medium) was used for the v0.1.3–v0.1.18 Claude integration fixes, automatic quota fetching, details ordering and reset-time display, the app icon, and release work.
-- Codex with GPT-6.1 Sol (reasoning effort: Ultra) was used for the v0.1.19 setup and portable editions. The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).
+- Codex with GPT-6.1 Sol was used for the v0.1.19 setup and portable editions (reasoning effort: Ultra) and the v1.0.0 release work (reasoning effort: High). The Japanese and English publication text was proofread with Gemini 3.8 Flash (High) (reasoning effort: High).

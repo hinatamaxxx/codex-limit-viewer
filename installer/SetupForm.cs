@@ -56,7 +56,7 @@ internal sealed class SetupForm : Form
         caption.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) DragWindow(); };
         captionIcon.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) DragWindow(); };
         brand.Text = "Codex Limit Viewer";
-        version.Text = "Version 0.1.19";
+        version.Text = "Version " + typeof(SetupForm).Assembly.GetName().Version!.ToString(3);
         brand.ForeColor = heading.ForeColor = destination.ForeColor = Ink;
         version.ForeColor = explanation.ForeColor = destinationTitle.ForeColor = optionsTitle.ForeColor = removalHint.ForeColor = languageTitle.ForeColor = status.ForeColor = Muted;
         destinationCard.Controls.AddRange([destinationTitle, destination]);
