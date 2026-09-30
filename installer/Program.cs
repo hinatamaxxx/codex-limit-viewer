@@ -42,7 +42,7 @@ internal static class Program
                     previewDpi = value;
                 }
                 ApplicationConfiguration.Initialize();
-                using var form = new SetupForm(options, previewDpi);
+                using var form = new SetupForm(options, previewDpi, args.Contains("--public-preview", StringComparer.OrdinalIgnoreCase));
                 var output = Path.GetFullPath(args[previewArgument + 1]);
                 Directory.CreateDirectory(Path.GetDirectoryName(output)!);
                 Exception? previewError = null;

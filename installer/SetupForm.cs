@@ -10,6 +10,7 @@ internal sealed class SetupForm : Form
     private static readonly Color Ink = Color.FromArgb(245, 245, 247), Muted = Color.FromArgb(190, 195, 207);
     private readonly SetupOptions options;
     private readonly int? previewDpi;
+    private readonly bool publicPreview;
     private readonly PictureBox appImage = new() { SizeMode = PictureBoxSizeMode.Zoom, TabStop = false };
     private readonly PictureBox captionIcon = new() { SizeMode = PictureBoxSizeMode.Zoom, TabStop = false };
     private readonly Label caption = NewLabel();
@@ -29,10 +30,11 @@ internal sealed class SetupForm : Form
     private bool English => language.SelectedIndex == 1;
     private string T(string ja, string en) => English ? en : ja;
 
-    internal SetupForm(SetupOptions options, int? previewDpi = null)
+    internal SetupForm(SetupOptions options, int? previewDpi = null, bool publicPreview = false)
     {
         this.options = options;
         this.previewDpi = previewDpi;
+        this.publicPreview = publicPreview;
         var families = FontFamily.Families.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         textFamily = families.Contains("Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
         Text = "Codex Limit Viewer";
@@ -64,7 +66,7 @@ internal sealed class SetupForm : Form
         language.BackColor = Card;
         language.ForeColor = Ink;
         language.SelectedIndex = options.English ? 1 : 0;
-        startup.Checked = options.Startup ?? InstallerService.StartupEnabled;
+        startup.Checked = options.Startup ?? (!publicPreview && InstallerService.StartupEnabled);
         launch.Checked = options.Launch;
         removeData.Checked = options.RemoveData;
         startup.Visible = launch.Visible = !options.Uninstall;
@@ -154,7 +156,7 @@ internal sealed class SetupForm : Form
             startup.Font = launch.Font = removeData.Font = UiFont(14);
             action.Font = close.Font = UiFont(14, true);
             language.Font = UiFont(13);
-            destination.Text = WrapPath(InstallerService.InstallFolder, destination.Font, S(558));
+            destination.Text = WrapPath(publicPreview ? @"%LOCALAPPDATA%\Programs\CodexLimitViewer" : InstallerService.InstallFolder, destination.Font, S(558));
             int pathLines = destination.Text.Count(c => c == '\n') + 1;
             int cardHeight = Math.Max(98, 54 + pathLines * 22);
             int optionsY = 193 + cardHeight + 16, footerY = optionsY + 130 + 17;
@@ -206,7 +208,7 @@ internal sealed class SetupForm : Form
 
     private void UpdateText()
     {
-        bool updating = File.Exists(InstallerService.AppPath);
+        bool updating = !publicPreview && File.Exists(InstallerService.AppPath);
         heading.Text = complete ? T("準備ができました", "You're all set") : options.Uninstall ? T("アプリを削除", "Uninstall the app")
             : updating ? T("最新版に更新", "Update your app") : T("インストール", "Install the app");
         explanation.Text = options.Uninstall ? T("アプリと起動用ショートカットを削除します。", "Remove the app and its launch shortcuts.")
