@@ -3,3 +3,6 @@ obj/
 dist/
 release/
 dist-*/
+installer/bin/
+installer/obj/
+installer/payload.zip

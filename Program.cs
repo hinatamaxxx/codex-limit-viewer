@@ -1,6 +1,5 @@
 using System.Net.Http;
 using System.Text.Json;
-using Microsoft.Win32;
 
 namespace CodexLimitViewer;
 
@@ -132,13 +131,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         menu.Items.Add(displayMenu);
         var startup = new ToolStripMenuItem(L.T("Windows起動時に開始")) { CheckOnClick = true };
-        using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key?.GetValue("CodexLimitViewer") != null;
+        startup.Checked = StartupShortcut.IsEnabled;
         startup.Click += (_, _) =>
         {
             try
             {
-                using var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
-                if (startup.Checked) key.SetValue("CodexLimitViewer", "\"" + Environment.ProcessPath + "\""); else key.DeleteValue("CodexLimitViewer", false);
+                StartupShortcut.SetEnabled(startup.Checked);
             }
             catch { startup.Checked = !startup.Checked; MessageBox.Show(L.T("自動起動の設定を保存できませんでした。"), "Codex Limit Viewer"); }
         };

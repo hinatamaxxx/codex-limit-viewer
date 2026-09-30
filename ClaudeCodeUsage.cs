@@ -4,9 +4,9 @@ namespace CodexLimitViewer;
 
 internal static class ClaudeCodeUsage
 {
-    internal static string SnapshotPath => Path.Combine(Preferences.Folder, "claude-code-usage.json");
+    internal static string SnapshotPath => Path.Combine(AppPaths.SharedDataDirectory, "claude-code-usage.json");
 
-    internal static string BridgePath => Path.Combine(Preferences.Folder, "ClaudeCodeStatusLine.ps1");
+    internal static string BridgePath => Path.Combine(AppPaths.SharedDataDirectory, "ClaudeCodeStatusLine.ps1");
     private static string SettingsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
 
     // EnableClaudeCode.ps1 points Claude Code at a copy of the bridge. Restore it when that copy disappears or is outdated,
@@ -20,7 +20,7 @@ internal static class ClaudeCodeUsage
             using var reader = new StreamReader(stream);
             var bridge = reader.ReadToEnd();
             if (File.Exists(BridgePath) && File.ReadAllText(BridgePath) == bridge) return;
-            Directory.CreateDirectory(Preferences.Folder);
+            Directory.CreateDirectory(AppPaths.SharedDataDirectory);
             File.WriteAllText(BridgePath, bridge, new System.Text.UTF8Encoding(false));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }

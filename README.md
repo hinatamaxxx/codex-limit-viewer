@@ -17,6 +17,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 - **Grokの週次利用枠**: 公式Grok Build CLI（`grok.exe`）から残り割合とリセット日時を取得し、詳細画面に表示します。右クリックメニューの「タスクバー表示」で上段または下段にも表示できます。
 - **エラー時の安心表示**: 取得に失敗した場合は前回の数値をグレーで維持表示し、表示のチラつきや急な消失を防ぎます。
 - **バイリンガル対応**: 日本語を標準搭載。右クリックメニューからいつでも英語表記へ切り替え可能です。
+- **セットアップ版とportable版**: セットアップ版は決まった場所へインストールし、更新時は同じアプリを置き換えます。portable版は展開してそのまま起動できます。インストールと自動起動の設定は、レジストリを変更せずファイルとショートカットで行います。
 
 ![サンプル表示](docs/preview-ja.png)
 
@@ -29,14 +30,12 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
    - **Grok**: 残量を表示する場合は、[公式Grok Build CLI](https://docs.x.ai/build/cli/reference)をインストールし、`grok login`でログインします。
    ※ 本アプリにCLIツール本体は同梱されていません。
 2. **ダウンロード**:
-   [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases) より最新のZIPファイルをダウンロードし、展開します。
+   [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases) から、通常利用には`Setup-win-x64.exe`、持ち運びには`portable-win-x64.zip`を選びます。
 3. **インストール**:
-   展開したフォルダ内でPowerShellを開き、以下を実行します。
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File ./Install.ps1
-   ```
+   セットアップEXEをダブルクリックしてインストールします。旧版があれば同じ場所に更新するため、バージョンごとのアプリは増えません。スタートメニューにも登録されます。管理者権限は不要です。
    - インストール先: `%LOCALAPPDATA%/Programs/CodexLimitViewer`
    - データ保存先: `%LOCALAPPDATA%/CodexLimitViewer`
+   - portable版: ZIPを展開し、`CodexLimitViewer.exe`を起動します。設定と残量キャッシュはEXEの隣の`Data`フォルダに保存します。Claude Codeのstatus line連携用ファイルと、各CLIのログイン情報はセットアップ版と共通です。`portable.flag`は削除しないでください。
 4. **タスクバーの表示設定**:
    Windowsの「設定」>「個人用設定」>「タスクバー」>「その他のシステム トレイ アイコン」を開き、本アプリの項目（4つのトレイアイコン）をすべてオンにして、4つのスロットが隣り合うように配置してください。
 
@@ -48,7 +47,7 @@ Windows 11のタスクバー通知領域（システムトレイ）に、選択�
 - **左クリック**: 詳細ウィンドウの表示 / 非表示を切り替えます。クリックで開いた詳細ウィンドウは、再度クリックするか外側をクリックすると即時に閉じます。
 - **右クリック**: メニュー表示（ホバー表示のオン / オフ、今すぐ更新、言語切り替え、スタートアップ設定、終了）。表示項目や設定を変更してもメニューは開いたまま維持され、外側をクリックすると閉じます。
 - **表示するサービス**: 右クリックメニューの「タスクバー表示」→「上段／下段」にカーソルを合わせるとCodex、Antigravity、Claude Code、Grokの一覧が開きます。クリックは最後の項目選択だけです。タスクバーは常に2行構成です。
-- **スタートアップ起動**: 右クリックメニューからWindows起動時の自動起動を有効化できます（初期状態はオフ）。
+- **スタートアップ起動**: セットアップ画面、または右クリックメニューからWindows起動時の自動起動を有効化できます（初期状態はオフ）。Startupフォルダに1つのショートカットを作成します。portable版のフォルダを移動した場合は、一度オフにしてから再度オンにしてください。
 
 ## Claude Codeの連携
 
@@ -76,12 +75,13 @@ claude auth login
 dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dist
 ```
 
+セットアップEXEとportable ZIPをまとめて作る場合は、`powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/BuildRelease.ps1`を実行します。配布物とSHA-256一覧が`release/v<バージョン>/`に作成されます。
+
 ## アンインストール
 
-1. 右クリックメニューから「スタートアップ」をオフにし、アプリを「終了」します。
-2. 以下のフォルダおよびスタートメニューのショートカットを削除してください。
-   - `%LOCALAPPDATA%/Programs/CodexLimitViewer`
-   - `%LOCALAPPDATA%/CodexLimitViewer`
+セットアップ版はスタートメニューの「Uninstall Codex Limit Viewer」を開きます。自動起動とアプリのショートカットも削除します。設定やキャッシュは初期状態では残り、アンインストール画面で削除を選べます。Claude Codeのstatus line連携を維持するため、連携用スクリプトは削除しません。レジストリを変更しない構成のため、Windows設定の「インストールされているアプリ」には登録せず、スタートメニューから管理します。以前の版が作成したレジストリ項目も、この版は変更しません。
+
+portable版は自動起動をオフにし、アプリを終了して展開フォルダを削除します。
 
 ## 注意事項
 

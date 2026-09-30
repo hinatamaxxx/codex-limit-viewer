@@ -19,7 +19,7 @@ internal sealed class Preferences
     public bool FiveHourFirst { get; set; } = true;
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
-    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");
+    public static string Folder => AppPaths.DataDirectory;
     public static Preferences Load()
     {
         try

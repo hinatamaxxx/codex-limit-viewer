@@ -1,15 +1,16 @@
-﻿$ErrorActionPreference = 'Stop'
-$source = Join-Path $PSScriptRoot 'dist/CodexLimitViewer.exe'
-if (!(Test-Path -LiteralPath $source)) { throw 'Build or extract dist/CodexLimitViewer.exe first.' }
-$target = Join-Path $env:LOCALAPPDATA 'Programs/CodexLimitViewer'
-$exe = Join-Path $target 'CodexLimitViewer.exe'
-New-Item -ItemType Directory -Force $target | Out-Null
-Get-Process CodexLimitViewer -ErrorAction SilentlyContinue | Where-Object Path -eq $exe | ForEach-Object { $_.Kill(); $_.WaitForExit() }
-Copy-Item -LiteralPath $source -Destination $exe -Force
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Programs')) 'Codex Limit Viewer.lnk'))
-$shortcut.TargetPath = $exe
-$shortcut.WorkingDirectory = $target
-$shortcut.Save()
-Start-Process -FilePath $exe
-Write-Output "Installed: $exe"
+﻿param([switch]$Silent, [switch]$NoLaunch, [switch]$Startup)
+$ErrorActionPreference = 'Stop'
+$setup = Join-Path $PSScriptRoot 'dist-setup/CodexLimitViewerSetup.exe'
+if (!(Test-Path -LiteralPath $setup)) {
+    throw 'Run tools/BuildRelease.ps1 first, or double-click the distributed Setup.exe.'
+}
+$arguments = @()
+if ($Silent) { $arguments += '--silent' }
+if ($NoLaunch) { $arguments += '--no-launch' }
+if ($Startup) { $arguments += '--startup' }
+$options = @{ FilePath = $setup; PassThru = $true }
+if ($Silent) { $options.WindowStyle = 'Hidden' }
+if ($arguments.Count) { $options.ArgumentList = $arguments }
+$process = Start-Process @options
+$process.WaitForExit() # Wait for setup itself, not the resident app it may launch.
+if ($process.ExitCode -ne 0) { throw "Setup failed (exit $($process.ExitCode))." }

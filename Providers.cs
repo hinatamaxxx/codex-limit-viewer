@@ -25,7 +25,7 @@ internal static class Providers
         var errors = proc.StandardError.ReadToEndAsync();
         try
         {
-            await proc.StandardInput.WriteLineAsync("""{"id":1,"method":"initialize","params":{"clientInfo":{"name":"codex-limit-viewer","version":"0.1.18"}}}""");
+            await proc.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new { id = 1, method = "initialize", @params = new { clientInfo = new { name = "codex-limit-viewer", version = typeof(Providers).Assembly.GetName().Version?.ToString(3) } } }));
             await ReadResult(proc, 1, ct);
             await proc.StandardInput.WriteLineAsync("""{"method":"initialized","params":{}}""");
             await proc.StandardInput.WriteLineAsync("""{"id":2,"method":"account/rateLimits/read"}""");

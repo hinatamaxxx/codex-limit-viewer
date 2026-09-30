@@ -17,6 +17,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Grok Weekly Quota**: Displays the remaining weekly quota percentage and reset time from the official Grok Build CLI (`grok.exe`) in the details popup. Choose Grok for either taskbar row in the right-click menu.
 - **Graceful Error Handling**: If a fetch fails, previous values remain visible in gray text rather than disappearing.
 - **Bilingual Interface**: Japanese by default, switchable to English anytime via the right-click menu.
+- **Setup and Portable Editions**: Setup installs to one fixed location and replaces the existing app during updates. The portable edition runs from its extracted folder. Installation and startup use files and shortcuts without modifying the registry.
 
 ![Sample Preview](docs/preview-en.png)
 
@@ -29,14 +30,12 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
    - **Grok**: To display Grok quota, install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and sign in with `grok login`.
    *Note: This application does not bundle CLI tools.*
 2. **Download**:
-   Download and extract the latest release ZIP from [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases).
+   Choose `Setup-win-x64.exe` for regular use or `portable-win-x64.zip` for a portable copy from [Releases](https://github.com/hinatamaxxx/codex-limit-viewer/releases).
 3. **Install**:
-   Open PowerShell in the extracted directory and run:
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File ./Install.ps1
-   ```
+   Double-click the setup EXE. Updates replace the app in the same folder, keeping one installed version. Setup adds a Start Menu entry and requires no administrator privileges.
    - Install path: `%LOCALAPPDATA%/Programs/CodexLimitViewer`
    - Data directory: `%LOCALAPPDATA%/CodexLimitViewer`
+   - Portable edition: Extract the ZIP and run `CodexLimitViewer.exe`. Settings and quota cache are stored in the adjacent `Data` folder. Claude Code status-line integration files and CLI sign-ins are shared with the installed edition. Keep `portable.flag` in place.
 4. **Taskbar Settings**:
    Open Windows **Settings > Personalization > Taskbar > Other system tray icons**, turn on all four tray icons for this application, and keep the four slots adjacent on the taskbar.
 
@@ -48,7 +47,7 @@ A sleek, lightweight Windows 11 system tray application that continuously displa
 - **Left-Click**: Toggles the details popup. A popup opened by click closes immediately upon another click or clicking outside.
 - **Right-Click**: Context menu (hover setting, Refresh Now, Language, Launch at Startup, Exit). Changing displayed items or toggles keeps the menu open; click outside to dismiss it.
 - **Displayed Services**: In the right-click menu, hover over "Taskbar display" then "Top row" or "Bottom row", and click your desired service (Codex, Antigravity, Claude Code, or Grok). The taskbar stays at two rows.
-- **Startup**: Opt-in via the right-click menu (disabled by default).
+- **Startup**: Opt-in during setup or via the right-click menu (disabled by default). A single shortcut is created in the Startup folder. If you move a portable folder, turn startup off and on again to update its path.
 
 ## Claude Code Integration
 
@@ -76,12 +75,13 @@ Build a self-contained binary (no external runtime installation required) using 
 dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o dist
 ```
 
+To build both distribution editions, run `powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/BuildRelease.ps1`. The setup EXE, portable ZIP, and SHA-256 list are created in `release/v<version>/`.
+
 ## Uninstalling
 
-1. Disable startup from the context menu and exit the application.
-2. Remove the installation folder, data folder, and Start Menu shortcut:
-   - `%LOCALAPPDATA%/Programs/CodexLimitViewer`
-   - `%LOCALAPPDATA%/CodexLimitViewer`
+For the setup edition, open “Uninstall Codex Limit Viewer” from the Start Menu. It also removes the app and startup shortcuts. Settings and cache are kept by default; choose to remove them in the uninstall window if desired. The Claude Code status-line script is retained so that integration keeps working. This registry-free setup uses the Start Menu for management instead of registering under Windows Settings > Installed apps. Registry entries from earlier versions are left unchanged.
+
+For the portable edition, disable startup, exit the app, and delete its extracted folder.
 
 ## Notes
 
