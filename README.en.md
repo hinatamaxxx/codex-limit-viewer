@@ -117,7 +117,7 @@ When you switch startup in Windows settings, Windows itself records that choice.
 ## Uninstalling
 
 - **Setup edition**: In Windows **Settings → Apps → Installed apps**, select “Codex Limit Viewer” and click **Uninstall**. By default, settings and quota cache are removed too; turn on “Keep settings and data” to carry them over to a reinstall. The Claude Code status-line bridge script is kept because Claude Code's settings may point to it.
-  - To run it from a command line, use `"%LOCALAPPDATA%\Programs\CodexLimitViewer\Setup.exe" --uninstall --silent`. Add `--keep-settings` to keep settings.
+  - To run it from a command line, use `"%LOCALAPPDATA%\Programs\CodexLimitViewer\CodexLimitViewer.exe" --uninstall --silent`. Add `--keep-settings` to keep settings.
 - **Portable edition**: Disable startup, exit the app, and delete the extracted folder.
 
 Disable startup entries created by earlier versions through their settings or Windows “Startup.”

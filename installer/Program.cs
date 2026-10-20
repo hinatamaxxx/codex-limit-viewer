@@ -18,12 +18,17 @@ internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bo
     }
 }
 
-internal static class Program
+// The released exe is both the app and its setup: a file name containing "Setup", or --setup / --uninstall, opens the setup.
+internal static class SetupProgram
 {
+    internal static bool Requested(string[] args) =>
+        args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase) || a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
+        Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
+
     [DllImport("dwmapi.dll")] private static extern int DwmFlush();
-    [STAThread]
-    private static int Main(string[] args)
+    internal static int Run(string[] args)
     {
+        args = args.Where(a => !a.Equals("--setup", StringComparison.OrdinalIgnoreCase)).ToArray();
         SetupOptions options;
         try { options = SetupOptions.Parse(args); }
         catch (Exception e) { MessageBox.Show(e.Message, "Codex Limit Viewer Setup"); return 1; }

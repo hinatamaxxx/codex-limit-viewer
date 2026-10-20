@@ -117,7 +117,7 @@ portable版は、展開フォルダの`EnableClaudeCode.ps1`を実行してく�
 ## アンインストール
 
 - **セットアップ版**: Windowsの「設定」→「アプリ」→「インストールされているアプリ」で「Codex Limit Viewer」を選び、「アンインストール」をクリックします。初期設定では、設定と残量キャッシュも削除します。再インストールで引き継ぎたい場合は「設定とデータを残す」をオンにしてください。Claude Codeのstatus line連携用スクリプトは、Claude Codeの設定から参照されているため残します。
-  - コマンドで実行する場合は`"%LOCALAPPDATA%\Programs\CodexLimitViewer\Setup.exe" --uninstall --silent`です。設定を残すときは`--keep-settings`を付けます。
+  - コマンドで実行する場合は`"%LOCALAPPDATA%\Programs\CodexLimitViewer\CodexLimitViewer.exe" --uninstall --silent`です。設定を残すときは`--keep-settings`を付けます。
 - **portable版**: 自動起動をオフにし、アプリを終了して展開フォルダを削除します。
 
 以前の版が登録した自動起動項目は、その版の設定またはWindowsの「スタートアップ」から無効にしてください。

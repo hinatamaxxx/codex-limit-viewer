@@ -13,6 +13,7 @@ internal static class Program
     static int Main(string[] args)
     {
         SetCurrentProcessExplicitAppUserModelID(AppUserModelId);
+        if (CodexLimitViewerSetup.SetupProgram.Requested(args)) return CodexLimitViewerSetup.SetupProgram.Run(args);
         if (args.Contains("--self-test")) return Verification.Run();
         if (args.Contains("--diagnose"))
         {
