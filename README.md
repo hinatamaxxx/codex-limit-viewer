@@ -2,11 +2,11 @@
 
 # Codex Limit Viewer
 
-[ダウンロード](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0) · [English](README.en.md)
+[ダウンロード](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0) · [English](README.en.md)
 
 Windows 11の通知領域に、AIサービスの利用枠の残り割合を2行で表示するアプリです。Codex、Antigravity CLI、Claude Code、Grok Build CLIから、表示する2つのサービスを選べます。
 
-![タスクバーの表示例](docs/taskbar.png)
+![タスクバーの表示例](docs/taskbar.jpg)
 
 ## できること
 
@@ -16,7 +16,7 @@ Windows 11の通知領域に、AIサービスの利用枠の残り割合を2行�
 - 表示するサービスは、「使用状況」のカードをドラッグ＆ドロップして選べます。日本語・英語は右クリックメニューで切り替えます。
 - Windowsへのサインイン時に自動起動できます。初期設定はオフです。
 
-![残量の詳細](docs/preview-ja.png)
+![残量の詳細](docs/preview-ja.jpg)
 
 ## 利用するサービスの準備
 
@@ -37,17 +37,17 @@ Antigravityは、agyのバージョンによって残量を取得できない場
 
 通常はこちらを選んでください。
 
-1. [リリースページ](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0)から`Codex-Limit-Viewer-v1.1.0-Setup-win-x64.exe`をダウンロードします。
+1. [リリースページ](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0)から`Codex-Limit-Viewer-v1.2.0-Setup-win-x64.exe`をダウンロードします。
 2. EXEを実行し、「インストール」をクリックします。管理者権限は不要です。
 3. インストール後は、スタートメニューの「Codex Limit Viewer」から起動できます。
 
-![セットアップ画面](docs/setup-ja.png)
+![セットアップ画面](docs/setup-ja.jpg)
 
 ### portable版
 
 インストールせず、展開したフォルダから使いたい場合はこちらを選んでください。
 
-1. `Codex-Limit-Viewer-v1.1.0-portable-win-x64.zip`をダウンロードして展開します。
+1. `Codex-Limit-Viewer-v1.2.0-portable-win-x64.zip`をダウンロードして展開します。
 2. フォルダ内の`CodexLimitViewer.exe`を起動します。
 
 `portable`ファイル（v1.0.0では`portable.flag`）は削除しないでください。設定と残量キャッシュは、EXEの隣の`Data`フォルダに保存されます。CLIのログイン情報とClaude Codeのstatus line連携用ファイルは、セットアップ版と共通です。同じWindowsセッションで起動できるのは、両方の版を合わせて1つです。
@@ -58,7 +58,7 @@ Windowsの「設定」→「個人用設定」→「タスクバー」→「そ�
 
 ## 使い方
 
-![右クリックメニュー](docs/menu-ja.png)
+![右クリックメニュー](docs/menu-ja.jpg)
 
 | 操作 | 動作 |
 | --- | --- |
@@ -72,7 +72,7 @@ CodexとClaudeで5時間枠と週間枠がある場合は、「20%(80%)」のよ
 
 残量は通常1分ごとに更新されます（AntigravityとGrokは、CLIを起動して取得するため3分ごと）。画面のロック中とスリープ中は取得を止め、戻ったときにすぐ更新します。問い合わせ制限中は前回の値を表示します。取得できなくなった値はグレーで表示し、まだ取得できていない場合は「—」と表示します。
 
-![Grokを下段に選んだ表示例](docs/grok-taskbar.png)
+![Grokを下段に選んだ表示例](docs/grok-taskbar.jpg)
 
 ## 自動起動と更新
 
@@ -124,7 +124,7 @@ portable版は、展開フォルダの`EnableClaudeCode.ps1`を実行してく�
 
 ## 対応環境・注意事項
 
-- Windows 11 x64向けの非公式・未署名アプリです。追加の.NETランタイムのインストールは不要です。
+- Windows 11向けの非公式・未署名アプリです。Windowsに標準で入っている.NET Framework 4.8で動くため、追加のインストールは不要です（アプリは約1.4MB）。
 - 異なる表示倍率の複数モニターと、再起動後の自動起動は動作未確認です。
 - 各サービスの仕様やCLIの更新により、残量を取得できなくなる場合があります。Grokの対象はGrok Build CLIの週次利用枠で、Web版チャットの個別回数制限ではありません。
 - [MITライセンス](LICENSE)で利用できます。
