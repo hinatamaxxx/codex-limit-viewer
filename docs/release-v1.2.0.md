@@ -4,7 +4,7 @@
 
 Windows 11の通知領域で、AIサービスの利用枠の残り割合をひと目で確認できるアプリです。今回の版では、アプリを大幅に小さくし、残量の取得を安定させました。
 
-![タスクバーの表示例](https://raw.githubusercontent.com/hinatamaxxx/codex-limit-viewer/v1.2.0/docs/taskbar.jpg)
+![タスクバーの表示例](https://raw.githubusercontent.com/hinatamaxxx/codex-limit-viewer/main/docs/taskbar.jpg)
 
 ### 主な変更点
 
