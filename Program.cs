@@ -110,6 +110,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         form.TrayBounds = () => widget.Visible ? widget.ScreenBounds : TrayPresentation.GetBounds(selectedTray ?? tray);
         form.RefreshRequested += () => _ = Refresh(force: true);
+        // Dragging a card into the first two places of the usage popup picks the taskbar's two rows.
+        form.TaskbarChanged += Apply;
         var ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         showWait = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => ui.Post(_ => OpenPanel(), null), null, -1, false);
         tray.Icon = TrayPresentation.ReservationIcon(); tray.Text = "Codex Limit Viewer"; tray.Visible = true;
@@ -152,40 +154,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (newerVersion is { } version)
             entries.Add(new(L.F("新しいバージョン {version} をダウンロード", ("version", version.ToString(3))), UpdateCheck.OpenReleasePage));
         entries.Add(MenuEntry.Separator);
-        entries.Add(new(L.T("パネルを開く"), OpenPanel, Default: true));
-        entries.Add(new(L.T("今すぐ更新"), () => _ = Refresh(force: true)));
-        var providers = new[] { "Codex", "Antigravity", "Claude Code", "Grok" };
-        MenuEntry Row(bool top, string label) => new(label, Children: providers.Select(provider => new MenuEntry(provider, () =>
-        {
-            prefs.SelectTaskbarProvider(top, provider);
-            Apply();
-        }, Checked: (top ? prefs.TaskbarTop : prefs.TaskbarBottom) == provider)).ToList());
+        entries.Add(new(L.T("使用状況を開く"), OpenPanel, Default: true));
+        entries.Add(new(L.T("今すぐ更新"), () => _ = Refresh(force: true), Enabled: !busy));
         MenuEntry Order(bool fiveHourFirst, string label) => new(label, () =>
         {
             prefs.FiveHourFirst = fiveHourFirst; prefs.Save();
             ClockTextRenderer.FiveHourFirst = fiveHourFirst;
             Apply();
-        }, Checked: prefs.FiveHourFirst == fiveHourFirst);
-        entries.Add(new(L.T("タスクバー表示"), Children: [Row(true, L.T("上段")), Row(false, L.T("下段")), MenuEntry.Separator,
-            Order(true, L.T("5時間（週間）の順")), Order(false, L.T("週間（5時間）の順"))]));
+        }, Checked: prefs.FiveHourFirst == fiveHourFirst, Radio: true);
         entries.Add(new(L.T("その他"), Children:
         [
+            new(L.T("残量の表示順"), Children: [Order(true, L.T("5時間（週間）の順")), Order(false, L.T("週間（5時間）の順"))]),
+            MenuEntry.Separator,
             new(L.T("ホバーで詳細を開く"), () => { prefs.OpenDetailsOnHover = !prefs.OpenDetailsOnHover; prefs.Save(); widget.UpdateTooltip(); }, Checked: prefs.OpenDetailsOnHover),
             new(L.T("Windows起動時に自動起動"), ToggleStartup, Checked: StartupShortcut.IsEnabled),
+            MenuEntry.Separator,
             new("Language / 言語", Children: new[] { ("日本語", "ja"), ("English", "en") }.Select(language =>
-                new MenuEntry(language.Item1, () => SwitchLanguage(language.Item2), Checked: prefs.Language == language.Item2)).ToList()),
+                new MenuEntry(language.Item1, () => SwitchLanguage(language.Item2), Checked: prefs.Language == language.Item2, Radio: true)).ToList()),
         ]));
         entries.Add(MenuEntry.Separator);
         entries.Add(new(L.T("終了"), ConfirmExit));
         return entries;
     }
-    private string StatusLine()
-    {
-        if (busy) return L.T("残量を更新しています…");
-        var latest = new Reading?[] { codex, agy, claude, grok }.Where(r => r is { Updated: not null, Error: null }).Select(r => r!.Updated!.Value).DefaultIfEmpty().Max();
-        return latest == default ? L.T("残量を取得できていません")
-            : L.F("{time} に残量を更新しました", ("time", latest.ToLocalTime().ToString("H:mm")));
-    }
+    // The two taskbar values, so the menu answers "how much is left" even when the taskbar text is hidden.
+    private string StatusLine() => busy ? L.T("残量を更新しています…")
+        : $"{ClockTextRenderer.TaskbarName(shownTop.Provider)} {ClockTextRenderer.TaskbarValue(shownTop)} · {ClockTextRenderer.TaskbarName(shownBottom.Provider)} {ClockTextRenderer.TaskbarValue(shownBottom)}";
     private void ToggleStartup()
     {
         try
