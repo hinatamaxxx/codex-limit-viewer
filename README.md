@@ -2,7 +2,7 @@
 
 # Codex Limit Viewer
 
-[ダウンロード](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0) · [English](README.en.md)
+[ダウンロード](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0) · [English](README.en.md)
 
 Windows 11の通知領域に、AIサービスの利用枠の残り割合を2行で表示するアプリです。Codex、Antigravity CLI、Claude Code、Grok Build CLIから、表示する2つのサービスを選べます。
 
@@ -37,7 +37,7 @@ Antigravityは、agyのバージョンによって残量を取得できない場
 
 通常はこちらを選んでください。
 
-1. [リリースページ](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0)から`Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe`をダウンロードします。
+1. [リリースページ](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0)から`Codex-Limit-Viewer-v1.1.0-Setup-win-x64.exe`をダウンロードします。
 2. EXEを実行し、「インストール」をクリックします。管理者権限は不要です。
 3. インストール後は、スタートメニューの「Codex Limit Viewer」から起動できます。
 
@@ -47,7 +47,7 @@ Antigravityは、agyのバージョンによって残量を取得できない場
 
 インストールせず、展開したフォルダから使いたい場合はこちらを選んでください。
 
-1. `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`をダウンロードして展開します。
+1. `Codex-Limit-Viewer-v1.1.0-portable-win-x64.zip`をダウンロードして展開します。
 2. フォルダ内の`CodexLimitViewer.exe`を起動します。
 
 `portable`ファイル（v1.0.0では`portable.flag`）は削除しないでください。設定と残量キャッシュは、EXEの隣の`Data`フォルダに保存されます。CLIのログイン情報とClaude Codeのstatus line連携用ファイルは、セットアップ版と共通です。同じWindowsセッションで起動できるのは、両方の版を合わせて1つです。
