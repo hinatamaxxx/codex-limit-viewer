@@ -11,25 +11,28 @@ $portable = Join-Path $work "Codex-Limit-Viewer-v$version-portable-win-x64"
 New-Item -ItemType Directory -Path $payload, $portable -Force | Out-Null
 try {
     # Documents and scripts that go beside the exe; the setup embeds them and installs them with itself.
+    # README images stay out of the exe to keep it small; the portable zip carries them as files.
     foreach ($file in @('README.md','README.en.md','LICENSE','EnableClaudeCode.ps1','ClaudeCodeStatusLine.ps1')) {
         Copy-Item -LiteralPath (Join-Path $root $file) -Destination $payload
     }
-    Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $payload -Recurse
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $payloadZip = Join-Path $root 'installer/payload.zip'
     if (Test-Path -LiteralPath $payloadZip) { Remove-Item -LiteralPath $payloadZip }
     [IO.Compression.ZipFile]::CreateFromDirectory($payload, $payloadZip, [IO.Compression.CompressionLevel]::Optimal, $false)
 
-    # One compressed, self-contained exe is the app, its setup (when named "...Setup...") and its uninstaller.
-    & dotnet publish $project -c Release --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o (Join-Path $root 'dist')
+    # One small exe for .NET Framework 4.8 (part of Windows) is the app, its setup (when named "...Setup...")
+    # and its uninstaller. Its libraries are embedded, so nothing else has to sit beside it.
+    $dist = Join-Path $root 'dist'
+    & dotnet build $project -c Release -o $dist
     if ($LASTEXITCODE -ne 0) { throw 'Application build failed.' }
-    $exe = Join-Path $root 'dist/CodexLimitViewer.exe'
+    $exe = Join-Path $dist 'CodexLimitViewer.exe'
 
     $setupName = "Codex-Limit-Viewer-v$version-Setup-win-x64.exe"
     Copy-Item -LiteralPath $exe -Destination (Join-Path $release $setupName) -Force
 
     Copy-Item -LiteralPath $exe -Destination $portable
     Get-ChildItem -LiteralPath $payload | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $portable -Recurse }
+    Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $portable -Recurse
     'Codex Limit Viewer portable' | Set-Content -LiteralPath (Join-Path $portable 'portable') -Encoding ascii
     $portableName = "Codex-Limit-Viewer-v$version-portable-win-x64.zip"
     $portableZip = Join-Path $release $portableName

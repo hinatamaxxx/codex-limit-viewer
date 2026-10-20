@@ -16,10 +16,13 @@ internal static class TrayPresentation
 
     internal static Rectangle? GetBounds(NotifyIcon icon)
     {
-        // NotifyIcon does not expose its native identity. This adapter is verified against our bundled .NET runtime.
+        // NotifyIcon does not expose its native identity, so read it from its private fields.
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        if (typeof(NotifyIcon).GetField("_window", flags)?.GetValue(icon) is not NativeWindow window ||
-            typeof(NotifyIcon).GetField("_id", flags)?.GetValue(icon) is not uint uid) return null;
+        // .NET Framework names these "window" and "id" (an int); newer .NET uses "_window" and "_id" (a uint).
+        var windowField = typeof(NotifyIcon).GetField("window", flags) ?? typeof(NotifyIcon).GetField("_window", flags);
+        var idField = typeof(NotifyIcon).GetField("id", flags) ?? typeof(NotifyIcon).GetField("_id", flags);
+        if (windowField?.GetValue(icon) is not NativeWindow window || idField?.GetValue(icon) is not { } idValue) return null;
+        uint uid = Convert.ToUInt32(idValue);
         var id = new Identifier { Size = (uint)Marshal.SizeOf<Identifier>(), Window = window.Handle, Id = uid };
         return Shell_NotifyIconGetRect(ref id, out var r) == 0 && r.Right > r.Left && r.Bottom > r.Top
             ? Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom) : null;
@@ -30,8 +33,8 @@ internal static class TrayPresentation
         int y = icon.Top - panel.Height - 8;
         // Top taskbars open below the icon instead of off-screen.
         if (y < workArea.Top) y = icon.Bottom + 8;
-        return new(Math.Clamp(x, workArea.Left, Math.Max(workArea.Left, workArea.Right - panel.Width)),
-            Math.Clamp(y, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - panel.Height)));
+        return new(CodexLimitViewer.Compat.Clamp(x, workArea.Left, Math.Max(workArea.Left, workArea.Right - panel.Width)),
+            CodexLimitViewer.Compat.Clamp(y, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - panel.Height)));
     }
     internal static Icon ReservationIcon()
     {

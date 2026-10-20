@@ -55,7 +55,7 @@ internal static class ClockTextRenderer
             using (valueFont)
                 g.DrawString(text, valueFont, valueBrush, Snap(right - value.Width), Snap(y + (row - LineHeight(valueFont)) / 2), format);
         }
-        float Snap(float value) => MathF.Round(value * scale) / scale;
+        float Snap(float value) => (float)Math.Round(value * scale) / scale;
         static Font Font(float size) => new("Segoe UI", size, FontStyle.Regular, GraphicsUnit.Pixel);
         // The font's line spacing in pixels, like WPF's FormattedText.Height, so text sits where it did before.
         static float LineHeight(Font font) =>

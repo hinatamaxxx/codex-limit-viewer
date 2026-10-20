@@ -1,3 +1,4 @@
+using CodexLimitViewer;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -23,7 +24,7 @@ internal static class SetupProgram
 {
     internal static bool Requested(string[] args) =>
         args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase) || a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
-        Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
+        Path.GetFileNameWithoutExtension(CodexLimitViewer.Compat.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
 
     [DllImport("dwmapi.dll")] private static extern int DwmFlush();
     internal static int Run(string[] args)
@@ -85,7 +86,7 @@ internal static class SetupProgram
         }
 
         // A running executable cannot replace its own installed file. Continue from a disposable copy instead.
-        if (!options.Uninstall && InstallerService.IsInsideInstallFolder(Environment.ProcessPath!))
+        if (!options.Uninstall && InstallerService.IsInsideInstallFolder(CodexLimitViewer.Compat.ProcessPath!))
         {
             if (options.Silent)
             {
@@ -97,9 +98,9 @@ internal static class SetupProgram
                 var temporary = Path.Combine(Path.GetTempPath(), "CodexLimitViewerSetup-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(temporary);
                 var copy = Path.Combine(temporary, "CodexLimitViewerSetup.exe");
-                File.Copy(Environment.ProcessPath!, copy);
+                File.Copy(CodexLimitViewer.Compat.ProcessPath!, copy);
                 var start = new ProcessStartInfo(copy) { UseShellExecute = true, WorkingDirectory = temporary };
-                foreach (var arg in args) start.ArgumentList.Add(arg);
+                start.SetArguments(args);
                 _ = Process.Start(start) ?? throw new IOException("Unable to start the setup copy.");
                 return 0;
             }

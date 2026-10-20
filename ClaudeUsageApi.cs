@@ -69,7 +69,7 @@ internal static class ClaudeUsageApi
             response = await SendUsage(token.Access, stop);
         }
         using var _ = response;
-        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        if (response.StatusCode == (HttpStatusCode)429)
         {
             retryAfter = DateTimeOffset.UtcNow + (response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(2));
             throw new IOException(L.T("Claudeの使用状況の取得を一時的に控えています"));
@@ -77,7 +77,7 @@ internal static class ClaudeUsageApi
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         if (!response.IsSuccessStatusCode) throw new IOException(L.T("Claudeの使用状況を取得できません"));
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(stop));
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var now = DateTimeOffset.UtcNow;
         var reading = Parse(doc.RootElement, now);
         if (reading.Quotas.Count > 0) SaveCache(doc.RootElement, now);
@@ -124,7 +124,7 @@ internal static class ClaudeUsageApi
     {
         if (token.Refresh == null) throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         var body = new Dictionary<string, string> { ["grant_type"] = "refresh_token", ["refresh_token"] = token.Refresh, ["client_id"] = ClientId };
-        if (token.Scopes.Length > 0) body["scope"] = string.Join(' ', token.Scopes);
+        if (token.Scopes.Length > 0) body["scope"] = string.Join(" ", token.Scopes);
         using var response = await Http.PostAsync(TokenUrl, new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json"), stop);
         if (!response.IsSuccessStatusCode)
         {
@@ -132,14 +132,14 @@ internal static class ClaudeUsageApi
             if (ReadToken() is { } latest && latest.Expires > DateTimeOffset.UtcNow.AddMinutes(1)) return latest;
             throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
         }
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(stop));
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var now = DateTimeOffset.UtcNow;
         var json = File.ReadAllText(CredentialsPath);
         if (ParseToken(json) is { } current && current.Refresh != token.Refresh && current.Expires > now.AddMinutes(1)) return current;
         var updated = ApplyRenewal(json, doc.RootElement, now);
         var temp = CredentialsPath + ".codex-limit-viewer.tmp";
         File.WriteAllText(temp, updated, new System.Text.UTF8Encoding(false));
-        File.Move(temp, CredentialsPath, overwrite: true);
+        CodexLimitViewer.Compat.MoveOver(temp, CredentialsPath);
         return ParseToken(updated) ?? throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
     }
 
@@ -157,7 +157,7 @@ internal static class ClaudeUsageApi
         if (renewal.TryGetProperty("scope", out var scope) && scope.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(scope.GetString()))
         {
             var scopes = new System.Text.Json.Nodes.JsonArray();
-            foreach (var item in scope.GetString()!.Split(' ', StringSplitOptions.RemoveEmptyEntries)) scopes.Add(item);
+            foreach (var item in scope.GetString()!.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)) scopes.Add(item);
             oauth["scopes"] = scopes;
         }
         return root.ToJsonString();
@@ -182,7 +182,7 @@ internal static class ClaudeUsageApi
     {
         if (!root.TryGetProperty(key, out var window) || window.ValueKind != JsonValueKind.Object ||
             !window.TryGetProperty("utilization", out var used) || !used.TryGetDouble(out var percent) ||
-            !double.IsFinite(percent) || percent < 0) return;
+            !CodexLimitViewer.Compat.IsFinite(percent) || percent < 0) return;
         DateTimeOffset? reset = null;
         if (window.TryGetProperty("resets_at", out var r) && r.ValueKind == JsonValueKind.String &&
             DateTimeOffset.TryParse(r.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
@@ -192,6 +192,6 @@ internal static class ClaudeUsageApi
         }
         // Model-specific weekly windows without a reset time are placeholders for unused models, not real limits.
         if (reset == null && key.StartsWith("seven_day_")) return;
-        rows.Add(new(label, Math.Clamp(100 - percent, 0, 100), reset));
+        rows.Add(new(label, CodexLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
     }
 }

@@ -206,7 +206,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (prefs.Language == language) return;
         prefs.Language = language; prefs.Save();
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!, "--restarted") { UseShellExecute = false })?.Dispose(); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CodexLimitViewer.Compat.ProcessPath!, "--restarted") { UseShellExecute = false })?.Dispose(); }
         catch (Exception) { return; }
         ExitThread();
     }

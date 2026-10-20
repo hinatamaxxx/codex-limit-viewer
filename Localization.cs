@@ -42,6 +42,6 @@ internal static class TooltipText
         var kept = lines.Where(l => !string.IsNullOrEmpty(l)).ToList();
         while (kept.Count > 1 && string.Join("\n", kept).Length > Limit) kept.RemoveAt(kept.Count - 1);
         var text = string.Join("\n", kept);
-        return text.Length > Limit ? text[..Limit] : text;
+        return text.Length > Limit ? text.Substring(0, Limit) : text;
     }
 }

@@ -23,8 +23,7 @@ internal static class GrokUsage
             UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true
         };
-        psi.ArgumentList.Add("agent");
-        psi.ArgumentList.Add("stdio");
+        psi.SetArguments(["agent", "stdio"]);
         using var proc = Process.Start(psi) ?? throw new IOException(L.T("Grok CLIを起動できません"));
         var stderr = proc.StandardError.ReadToEndAsync();
         try
@@ -40,7 +39,7 @@ internal static class GrokUsage
             {
                 int requestId = 2 + attempt;
                 await proc.StandardInput.WriteLineAsync($$$"""{"jsonrpc":"2.0","id":{{{requestId}}},"method":"_x.ai/billing","params":{}}""");
-                await proc.StandardInput.FlushAsync(timeout.Token);
+                await proc.StandardInput.FlushAsync();
                 var root = await ReadResponse(proc, requestId, timeout.Token);
                 if (!root.TryGetProperty("error", out var error))
                 {
@@ -64,7 +63,7 @@ internal static class GrokUsage
         }
         finally
         {
-            if (!proc.HasExited) proc.Kill(true);
+            if (!proc.HasExited) proc.KillTree();
             await proc.WaitForExitAsync(CancellationToken.None);
             await stderr;
         }
@@ -75,7 +74,7 @@ internal static class GrokUsage
         while (true)
         {
             var line = await proc.StandardOutput.ReadLineAsync(ct) ?? throw new IOException(L.T("Grok CLIとの接続が終了しました"));
-            if (!line.StartsWith('{')) continue;
+            if (!line.StartsWith("{")) continue;
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("id", out var id) &&
@@ -88,14 +87,14 @@ internal static class GrokUsage
     {
         if (!result.TryGetProperty("config", out var config) || config.ValueKind != JsonValueKind.Object ||
             !config.TryGetProperty("creditUsagePercent", out var usage) || !usage.TryGetDouble(out var used) ||
-            !double.IsFinite(used) || used < 0 ||
+            !CodexLimitViewer.Compat.IsFinite(used) || used < 0 ||
             !config.TryGetProperty("currentPeriod", out var period) || period.ValueKind != JsonValueKind.Object ||
             !period.TryGetProperty("type", out var type) || type.GetString() != "USAGE_PERIOD_TYPE_WEEKLY" ||
             !period.TryGetProperty("end", out var end) || end.ValueKind != JsonValueKind.String ||
             !DateTimeOffset.TryParse(end.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var reset) ||
             reset <= captured)
             throw new IOException(L.T("Grokの週次残量は利用できません"));
-        return new Reading("Grok", [new Quota("週間", Math.Clamp(100 - used, 0, 100), reset)], captured,
+        return new Reading("Grok", [new Quota("週間", CodexLimitViewer.Compat.Clamp(100 - used, 0, 100), reset)], captured,
             Source: L.T("Grok CLI経由"));
     }
 }

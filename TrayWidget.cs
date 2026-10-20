@@ -105,7 +105,7 @@ internal sealed class TrayWidget : Form
         var screen = Screen.FromRectangle(area);
         bool adjacent = ordered.All(r => Math.Abs(r.Top - area.Top) <= 2) &&
             area.Width <= ordered.Sum(r => r.Width) + 2 &&
-            ordered.Zip(ordered.Skip(1)).All(pair => Math.Abs(pair.First.Right - pair.Second.Left) <= 2);
+            ordered.Zip(ordered.Skip(1), (First, Second) => (First, Second)).All(pair => Math.Abs(pair.First.Right - pair.Second.Left) <= 2);
         bool onTaskbar = !screen.WorkingArea.Contains(area) && screen.Bounds.IntersectsWith(area);
         if (!adjacent || !onTaskbar || !AttachToTaskbar(area)) { UpdateTooltip(); Hide(); return; }
         int height = area.Height;
@@ -120,20 +120,20 @@ internal sealed class TrayWidget : Form
         {
             hovered = pointerInside;
             hoverHandled = false;
-            hoverStarted = Environment.TickCount64;
+            hoverStarted = CodexLimitViewer.Compat.TickCount64;
             needsPaint = true;
         }
         if (hovered && !hoverHandled)
         {
             if (menu.IsOpen) hoverHandled = true;
-            else if (Environment.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
+            else if (CodexLimitViewer.Compat.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
             {
                 hoverHandled = true;
                 HoverDetails?.Invoke();
             }
         }
         bool showName = hovered && !menu.IsOpen && HoverDetailsEnabled?.Invoke() == false &&
-            Environment.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
+            CodexLimitViewer.Compat.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
         if (showName && !tooltipVisible)
         {
             string text = TooltipText?.Invoke() ?? "Codex Limit Viewer";
@@ -148,7 +148,7 @@ internal sealed class TrayWidget : Form
     protected override void OnPaint(PaintEventArgs e) { }
     private void RenderSurface()
     {
-        using var bitmap = ClockTextRenderer.Render(Width, Height, DeviceDpi, topReading, bottomReading, hovered);
+        using var bitmap = ClockTextRenderer.Render(Width, Height, CodexLimitViewer.Compat.SystemDpi, topReading, bottomReading, hovered);
         LayeredSurface.Present(Handle, bitmap, taskbarPosition);
     }
     protected override void Dispose(bool disposing)

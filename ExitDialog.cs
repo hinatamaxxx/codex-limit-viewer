@@ -24,9 +24,9 @@ internal sealed class ExitDialog : Form
         MaximizeBox = MinimizeBox = false;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        AutoScaleMode = AutoScaleMode.None; // Laid out from DeviceDpi, including after a DPI change.
+        AutoScaleMode = AutoScaleMode.None; // Laid out from CodexLimitViewer.Compat.SystemDpi, including after a DPI change.
         TopMost = true;
-        try { Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); } catch { }
+        try { Icon = Icon.ExtractAssociatedIcon(CodexLimitViewer.Compat.ProcessPath!); } catch { }
         BackColor = Surface;
         heading.Text = L.T("Codex Limit Viewer を終了しますか？");
         body.Text = L.T("終了すると、タスクバーの残量表示と定期的な更新が止まります。") + "\n\n" +
@@ -57,7 +57,7 @@ internal sealed class ExitDialog : Form
 
     private void LayoutDialog()
     {
-        float scale = DeviceDpi / 96f;
+        float scale = CodexLimitViewer.Compat.SystemDpi / 96f;
         int S(float value) => (int)Math.Round(value * scale);
         string family = FontFamily.Families.Any(f => f.Name == "Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
         heading.Font = new Font("Segoe UI Semibold", 20 * scale, GraphicsUnit.Pixel);
@@ -115,7 +115,7 @@ internal sealed class ExitDialog : Form
                        : pressed ? Color.FromArgb(240, 240, 240) : hovered ? Color.FromArgb(246, 246, 246) : Color.FromArgb(253, 253, 253);
             Color border = Primary ? fill : Dark ? Color.FromArgb(70, 70, 70) : Color.FromArgb(214, 214, 214);
             Color text = Primary ? Dark ? Color.Black : Color.White : Dark ? Color.White : Color.FromArgb(27, 27, 27);
-            float radius = 4 * DeviceDpi / 96f;
+            float radius = 4 * CodexLimitViewer.Compat.SystemDpi / 96f;
             using var shape = DetailsForm.Rounded(new RectangleF(.5f, .5f, Width - 1, Height - 1), radius);
             using var brush = new SolidBrush(fill);
             using var pen = new Pen(border);
@@ -125,7 +125,7 @@ internal sealed class ExitDialog : Form
             if (Focused && ShowFocusCues)
             {
                 using var focus = DetailsForm.Rounded(new RectangleF(1.5f, 1.5f, Width - 3, Height - 3), radius);
-                using var focusPen = new Pen(Dark ? Color.White : Color.Black, Math.Max(1, DeviceDpi / 96f));
+                using var focusPen = new Pen(Dark ? Color.White : Color.Black, Math.Max(1, CodexLimitViewer.Compat.SystemDpi / 96f));
                 e.Graphics.DrawPath(focusPen, focus);
             }
         }

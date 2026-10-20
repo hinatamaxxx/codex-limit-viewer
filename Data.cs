@@ -87,13 +87,13 @@ internal static class QuotaParser
         foreach (var key in new[] { "primary", "secondary" })
         {
             if (!b.TryGetProperty(key, out var w) || w.ValueKind != JsonValueKind.Object ||
-                !w.TryGetProperty("usedPercent", out var used) || !used.TryGetDouble(out var percent) || !double.IsFinite(percent)) continue;
+                !w.TryGetProperty("usedPercent", out var used) || !used.TryGetDouble(out var percent) || !CodexLimitViewer.Compat.IsFinite(percent)) continue;
             double duration = w.TryGetProperty("windowDurationMins", out var d) && d.TryGetDouble(out var minutes) ? minutes : 0;
             var label = duration switch { 300 => "5時間", 10080 => "週間", > 0 => $"{duration / 60:0.#}時間", _ => key };
             DateTimeOffset? reset = null;
             if (w.TryGetProperty("resetsAt", out var r) && r.TryGetInt64(out var seconds))
                 try { reset = DateTimeOffset.FromUnixTimeSeconds(seconds); } catch (ArgumentOutOfRangeException) { }
-            rows.Add(new(prefix + label, Math.Clamp(100 - percent, 0, 100), reset));
+            rows.Add(new(prefix + label, CodexLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
         }
     }
     // A headless reply without the "command" result that spent tokens means agy sent "/usage" to the model as a prompt.
@@ -123,7 +123,7 @@ internal static class QuotaParser
             foreach (var item in q.EnumerateObject())
             {
                 if (item.Value.ValueKind != JsonValueKind.Object || !item.Value.TryGetProperty("remaining_fraction", out var f) ||
-                    !f.TryGetDouble(out var fraction) || !double.IsFinite(fraction) || fraction < 0 || fraction > 1) continue;
+                    !f.TryGetDouble(out var fraction) || !CodexLimitViewer.Compat.IsFinite(fraction) || fraction < 0 || fraction > 1) continue;
                 DateTimeOffset? reset = null;
                 if (item.Value.TryGetProperty("reset_time", out var r) && r.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(r.GetString(), out var dt)) reset = dt;
                 rows.Add(new(item.Name, fraction * 100, reset));
