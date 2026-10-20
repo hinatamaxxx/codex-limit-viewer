@@ -484,7 +484,6 @@ internal sealed class DetailsForm : Form
         dragOffset = pressPoint.Y - (ListBounds.Top + dragging.Top - scroll);
         dropIndex = cards.IndexOf(dragging);
         Capture = true;
-        Cursor = Cursors.SizeAll;
         autoScroll.Start();
     }
     private void MoveDrag(Point p)
@@ -540,7 +539,6 @@ internal sealed class DetailsForm : Form
         dragging = pressed = null;
         autoScroll.Stop();
         Capture = false;
-        Cursor = Cursors.Default;
         Invalidate();
     }
 

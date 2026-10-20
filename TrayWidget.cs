@@ -35,7 +35,6 @@ internal sealed class TrayWidget : Form
         BackColor = Color.FromArgb(35, 35, 35);
         Text = "Codex Limit Viewer Taskbar";
         AccessibleName = L.T("CodexとAntigravityの残り使用量");
-        Cursor = Cursors.Hand;
         timer.Tick += (_, _) => Align();
         timer.Start();
     }
