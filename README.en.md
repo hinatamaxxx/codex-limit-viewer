@@ -2,7 +2,7 @@
 
 # Codex Limit Viewer
 
-[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0) · [日本語](README.md)
+[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0) · [日本語](README.md)
 
 See your remaining AI quota in two rows in the Windows 11 system tray. Choose two services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
 
@@ -37,7 +37,7 @@ Antigravity quota may be unavailable with some agy versions. With agy 1.2.12, th
 
 Choose this edition for regular use.
 
-1. Download `Codex-Limit-Viewer-v1.0.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.0.0).
+1. Download `Codex-Limit-Viewer-v1.1.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0).
 2. Run the EXE and click “Install.” No administrator privileges are required.
 3. After installation, launch “Codex Limit Viewer” from the Start Menu.
 
@@ -47,7 +47,7 @@ Choose this edition for regular use.
 
 Choose this edition to run the app from an extracted folder without installation.
 
-1. Download and extract `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`.
+1. Download and extract `Codex-Limit-Viewer-v1.1.0-portable-win-x64.zip`.
 2. Run `CodexLimitViewer.exe` in the folder.
 
 Keep the `portable` file (`portable.flag` in v1.0.0) in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
