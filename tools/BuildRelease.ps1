@@ -17,7 +17,7 @@ foreach ($file in @('README.md','README.en.md','LICENSE','EnableClaudeCode.ps1',
 }
 Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $payload -Recurse
 Get-ChildItem -LiteralPath $payload | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $portable -Recurse }
-'Codex Limit Viewer portable' | Set-Content -LiteralPath (Join-Path $portable 'portable.flag') -Encoding ascii
+'Codex Limit Viewer portable' | Set-Content -LiteralPath (Join-Path $portable 'portable') -Encoding ascii
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $payloadZip = Join-Path $work 'payload.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($payload,$payloadZip,[IO.Compression.CompressionLevel]::Optimal,$false)

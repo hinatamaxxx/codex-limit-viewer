@@ -3,11 +3,18 @@ param([string]$Out = (Join-Path $PSScriptRoot '../app.ico'), [string]$Preview = 
 Add-Type -AssemblyName System.Drawing
 $sizes = 16, 20, 24, 32, 40, 48, 64, 96, 128, 256
 $pngs = @()
-foreach ($s in $sizes) {
+foreach ($size in $sizes) {
+    $s = $size
     $bmp = New-Object System.Drawing.Bitmap $s, $s
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = 'AntiAlias'; $g.PixelOffsetMode = 'HighQuality'
-    $k = $s / 256.0
+    # Keep about 4% clear on every side (10px at 256px, never less than 1px), like other Windows app icons.
+    # The artwork below is drawn on a 256-unit grid whose tile spans 8..248; scale it into the padded square.
+    $pad = [Math]::Max(1, [Math]::Round(10 * $s / 256.0))
+    $g.TranslateTransform($pad, $pad)
+    $g.ScaleTransform(($s - 2 * $pad) / 240.0, ($s - 2 * $pad) / 240.0)
+    $g.TranslateTransform(-8, -8)
+    $s = 256; $k = 1.0; $px = 240.0 / ($size - 2 * $pad) # one device pixel in grid units
     # Rounded dark tile
     $r = 56 * $k; $pad = 8 * $k; $w = $s - 2 * $pad
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
@@ -30,18 +37,18 @@ foreach ($s in $sizes) {
         $pen.StartCap = 'Round'; $pen.EndCap = 'Round'
         $g.DrawArc($pen, $rect, 135, 270 * $fraction)
     }
-    $outerThick = [Math]::Max(2.0, 26 * $k); $innerThick = [Math]::Max(2.0, 22 * $k)
+    $outerThick = [Math]::Max(26, 2 * $px); $innerThick = [Math]::Max(22, 2 * $px)
     Arc (86 * $k) $outerThick 0.72 ([System.Drawing.Color]::FromArgb(255, 45, 212, 191)) ([System.Drawing.Color]::FromArgb(255, 132, 225, 120))
-    if ($s -ge 24) { Arc (50 * $k) $innerThick 0.45 ([System.Drawing.Color]::FromArgb(255, 99, 150, 255)) ([System.Drawing.Color]::FromArgb(255, 168, 132, 255)) }
+    if ($size -ge 24) { Arc (50 * $k) $innerThick 0.45 ([System.Drawing.Color]::FromArgb(255, 99, 150, 255)) ([System.Drawing.Color]::FromArgb(255, 168, 132, 255)) }
     # Center dot
-    $d = [Math]::Max(2.0, 18 * $k)
+    $d = [Math]::Max(18, 2 * $px)
     $g.FillEllipse([System.Drawing.Brushes]::White, $c - $d/2, $cy - $d/2, $d, $d)
     $g.Dispose()
     $ms = New-Object System.IO.MemoryStream
     $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-    if ($Preview -and $s -eq 256) { $bmp.Save($Preview) }
+    if ($Preview -and $size -eq 256) { $bmp.Save($Preview) }
     $bmp.Dispose()
-    $pngs += ,@($s, $ms.ToArray())
+    $pngs += ,@($size, $ms.ToArray())
 }
 $fs = [System.IO.File]::Create($Out); $bw = New-Object System.IO.BinaryWriter $fs
 $bw.Write([uint16]0); $bw.Write([uint16]1); $bw.Write([uint16]$pngs.Count)

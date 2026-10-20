@@ -19,7 +19,7 @@ internal sealed class SetupForm : Form
     private readonly Label destinationTitle = NewLabel(), destination = NewLabel(), optionsTitle = NewLabel(), removalHint = NewLabel();
     private readonly Label languageTitle = NewLabel(), status = NewLabel();
     private readonly RoundedCard destinationCard = new(), optionsCard = new();
-    private readonly ModernCheckBox startup = new(), launch = new(), removeData = new();
+    private readonly ModernCheckBox startup = new(), desktop = new(), launch = new(), keepData = new();
     private readonly LanguageSelector language = new();
     private readonly RoundedButton action = new() { Primary = true }, close = new();
     private readonly ProgressBar progress = new() { Visible = false };
@@ -60,26 +60,28 @@ internal sealed class SetupForm : Form
         brand.ForeColor = heading.ForeColor = destination.ForeColor = Ink;
         version.ForeColor = explanation.ForeColor = destinationTitle.ForeColor = optionsTitle.ForeColor = removalHint.ForeColor = languageTitle.ForeColor = status.ForeColor = Muted;
         destinationCard.Controls.AddRange([destinationTitle, destination]);
-        optionsCard.Controls.AddRange([optionsTitle, startup, launch, removeData, removalHint]);
+        optionsCard.Controls.AddRange([optionsTitle, startup, desktop, launch, keepData, removalHint]);
         destinationTitle.BackColor = destination.BackColor = optionsTitle.BackColor = removalHint.BackColor = Card;
-        foreach (var option in new[] { startup, launch, removeData }) { option.BackColor = Card; option.ForeColor = Ink; }
+        foreach (var option in new[] { startup, desktop, launch, keepData }) { option.BackColor = Card; option.ForeColor = Ink; }
         language.BackColor = Card;
         language.ForeColor = Ink;
         language.SelectedIndex = options.English ? 1 : 0;
         startup.Checked = options.Startup ?? (!publicPreview && InstallerService.StartupEnabled);
+        desktop.Checked = options.Desktop ?? (!publicPreview && InstallerService.DesktopEnabled);
         launch.Checked = options.Launch;
-        removeData.Checked = options.RemoveData;
-        startup.Visible = launch.Visible = !options.Uninstall;
-        removeData.Visible = removalHint.Visible = options.Uninstall;
+        keepData.Checked = options.KeepData;
+        startup.Visible = desktop.Visible = launch.Visible = !options.Uninstall;
+        keepData.Visible = removalHint.Visible = options.Uninstall;
         Controls.AddRange([captionIcon, caption, captionClose, appImage, brand, version, heading, explanation, destinationCard, optionsCard, progress, status, languageTitle, language, action, close]);
-        startup.TabIndex = removeData.TabIndex = 0;
-        launch.TabIndex = 1;
-        language.TabIndex = 2;
-        action.TabIndex = 3;
-        close.TabIndex = 4;
+        startup.TabIndex = keepData.TabIndex = 0;
+        desktop.TabIndex = 1;
+        launch.TabIndex = 2;
+        language.TabIndex = 3;
+        action.TabIndex = 4;
+        close.TabIndex = 5;
         destinationCard.TabStop = optionsCard.TabStop = false;
         language.SelectedIndexChanged += (_, _) => { UpdateText(); LayoutUi(); };
-        removeData.CheckedChanged += (_, _) => UpdateText();
+        keepData.CheckedChanged += (_, _) => UpdateText();
         action.Click += async (_, _) => await RunOperation();
         close.Click += (_, _) => Close();
         FormClosing += (_, e) => { if (running) e.Cancel = true; };
@@ -114,7 +116,7 @@ internal sealed class SetupForm : Form
         LayoutUi();
     }
     protected override void OnDpiChanged(DpiChangedEventArgs e) { base.OnDpiChanged(e); LayoutUi(); }
-    protected override void OnShown(EventArgs e) { base.OnShown(e); LayoutUi(); action.Focus(); }
+    protected override void OnShown(EventArgs e) { base.OnShown(e); LayoutUi(); (options.Uninstall ? close : action).Focus(); }
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr value, IntPtr extra);
@@ -153,13 +155,14 @@ internal sealed class SetupForm : Form
             foreach (var label in new[] { version, destinationTitle, optionsTitle, removalHint, languageTitle }) label.Font = UiFont(13);
             brand.Font = UiFont(25, true);
             heading.Font = UiFont(22, true);
-            startup.Font = launch.Font = removeData.Font = UiFont(14);
+            startup.Font = desktop.Font = launch.Font = keepData.Font = UiFont(14);
             action.Font = close.Font = UiFont(14, true);
             language.Font = UiFont(13);
             destination.Text = WrapPath(publicPreview ? @"%LOCALAPPDATA%\Programs\CodexLimitViewer" : InstallerService.InstallFolder, destination.Font, S(558));
             int pathLines = destination.Text.Count(c => c == '\n') + 1;
             int cardHeight = Math.Max(98, 54 + pathLines * 22);
-            int optionsY = 193 + cardHeight + 16, footerY = optionsY + 130 + 17;
+            int optionsHeight = options.Uninstall ? 130 : 171;
+            int optionsY = 193 + cardHeight + 16, footerY = optionsY + optionsHeight + 17;
             ClientSize = new Size(S(660), S(footerY + 152));
             Place(captionIcon, 13, 11, 18, 18);
             Place(caption, 40, 8, 568, 24);
@@ -172,11 +175,12 @@ internal sealed class SetupForm : Form
             Place(destinationCard, 32, 233, 596, cardHeight);
             Place(destinationTitle, 18, 16, 560, 22);
             Place(destination, 18, 46, 560, cardHeight - 54);
-            Place(optionsCard, 32, optionsY + 40, 596, 130);
+            Place(optionsCard, 32, optionsY + 40, 596, optionsHeight);
             Place(optionsTitle, 18, 14, 560, 22);
             Place(startup, 18, 45, 560, 32);
-            Place(launch, 18, 86, 560, 32);
-            Place(removeData, 18, 45, 560, 32);
+            Place(desktop, 18, 86, 560, 32);
+            Place(launch, 18, 127, 560, 32);
+            Place(keepData, 18, 45, 560, 32);
             Place(removalHint, 50, 87, 528, 23);
             Place(status, 32, footerY + 40, 596, 43);
             Place(progress, 32, footerY + 86, 596, 3);
@@ -184,7 +188,7 @@ internal sealed class SetupForm : Form
             Place(language, 104, footerY + 104, 184, 36);
             Place(action, 360, footerY + 101, 168, 40);
             Place(close, 540, footerY + 101, 88, 40);
-            foreach (var control in new Control[] { destinationCard, optionsCard, startup, launch, removeData, action, close }) control.Invalidate();
+            foreach (var control in new Control[] { destinationCard, optionsCard, startup, desktop, launch, keepData, action, close }) control.Invalidate();
         }
         finally { ResumeLayout(); }
     }
@@ -211,20 +215,23 @@ internal sealed class SetupForm : Form
         bool updating = !publicPreview && File.Exists(InstallerService.AppPath);
         heading.Text = complete ? T("準備ができました", "You're all set") : options.Uninstall ? T("アプリを削除", "Uninstall the app")
             : updating ? T("最新版に更新", "Update your app") : T("インストール", "Install the app");
-        explanation.Text = options.Uninstall ? T("アプリと起動用ショートカットを削除します。", "Remove the app and its launch shortcuts.")
+        explanation.Text = options.Uninstall ? T("アプリ、ショートカット、設定と取得データを削除します。", "Remove the app, its shortcuts, settings and cached data.")
             : updating ? T("設定を引き継いで、アプリを置き換えます。", "Replace the existing app and keep your settings.")
             : T("タスクバーから、残りの利用枠をひと目で。", "See your remaining AI limits from the taskbar.");
         destinationTitle.Text = T("インストール先", "Installation folder");
         optionsTitle.Text = options.Uninstall ? T("データの扱い", "Your data") : T("起動の設定", "Launch options");
         startup.Text = T("Windows 起動時に開始する", "Launch at Windows startup");
+        desktop.Text = T("デスクトップにショートカットを作る", "Create a desktop shortcut");
         launch.Text = T("インストール後に起動する", "Launch after installation");
-        removeData.Text = T("設定と取得データも削除する", "Also remove settings and cached data");
-        removalHint.Text = removeData.Checked ? T("設定と取得データを削除します。", "Your saved settings and cached data will be removed.") : T("設定と取得データは保持します。", "Your saved settings and cached data will be kept.");
+        keepData.Text = T("設定とデータを残す（再インストールしたときに引き継ぐ）", "Keep settings and data (for a later reinstall)");
+        removalHint.Text = keepData.Checked ? T("設定と取得データは残します。", "Your saved settings and cached data will be kept.") : T("設定と取得データも削除します。", "Your saved settings and cached data will be removed.");
         languageTitle.Text = T("言語", "Language");
         action.Text = complete ? T("完了", "Done") : options.Uninstall ? T("削除", "Uninstall") : updating ? T("更新する", "Update") : T("インストール", "Install");
         close.Text = T("閉じる", "Close");
-        if (!running && !complete && !failed) status.Text = T("レジストリは変更しません。", "No changes are made to the registry.");
-        foreach (var option in new[] { startup, launch, removeData }) option.AccessibleName = option.Text;
+        if (!running && !complete && !failed) status.Text = options.Uninstall
+            ? T("「インストールされているアプリ」の登録も削除します。", "The entry in Installed apps is removed too.")
+            : T("レジストリに書くのは「インストールされているアプリ」への登録だけです。", "The only registry entry is the listing in Installed apps.");
+        foreach (var option in new[] { startup, desktop, launch, keepData }) option.AccessibleName = option.Text;
         action.AccessibleName = action.Text;
         close.AccessibleName = close.Text;
         language.AccessibleName = T("表示言語", "Display language");
@@ -245,18 +252,18 @@ internal sealed class SetupForm : Form
     {
         if (complete) { Close(); return; }
         running = true;
-        captionClose.Enabled = action.Enabled = close.Enabled = language.Enabled = startup.Enabled = launch.Enabled = removeData.Enabled = false;
+        captionClose.Enabled = action.Enabled = close.Enabled = language.Enabled = startup.Enabled = desktop.Enabled = launch.Enabled = keepData.Enabled = false;
         progress.Visible = true;
         progress.Style = ProgressBarStyle.Marquee;
         status.ForeColor = Muted;
         status.Text = T("処理しています…", "Working…");
         try
         {
-            bool startupChoice = startup.Checked, launchChoice = launch.Checked, removeChoice = removeData.Checked;
+            bool startupChoice = startup.Checked, desktopChoice = desktop.Checked, launchChoice = launch.Checked, keepChoice = keepData.Checked;
             await Task.Run(() =>
             {
-                if (options.Uninstall) InstallerService.Uninstall(removeChoice);
-                else InstallerService.Install(startupChoice, launchChoice);
+                if (options.Uninstall) InstallerService.Uninstall(keepChoice);
+                else InstallerService.Install(startupChoice, desktopChoice, launchChoice);
             });
             complete = true;
             ExitCode = 0;
@@ -279,7 +286,7 @@ internal sealed class SetupForm : Form
             progress.Visible = false;
             running = false;
             captionClose.Enabled = action.Enabled = close.Enabled = true;
-            language.Enabled = startup.Enabled = launch.Enabled = removeData.Enabled = !complete;
+            language.Enabled = startup.Enabled = desktop.Enabled = launch.Enabled = keepData.Enabled = !complete;
             action.Focus();
         }
     }
@@ -312,7 +319,6 @@ internal sealed class ModernCheckBox : CheckBox
     internal ModernCheckBox()
     {
         AutoSize = false;
-        Cursor = Cursors.Hand;
         AccessibleRole = AccessibleRole.CheckButton;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         CheckedChanged += (_, _) => Invalidate();
@@ -352,7 +358,6 @@ internal sealed class RoundedButton : Button
     {
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
-        Cursor = Cursors.Hand;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         GotFocus += (_, _) => Invalidate();
         LostFocus += (_, _) => Invalidate();
@@ -437,7 +442,6 @@ internal sealed class SegmentRadioButton : RadioButton
     {
         AutoSize = false;
         AutoCheck = true;
-        Cursor = Cursors.Hand;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         CheckedChanged += (_, _) => Invalidate();
         GotFocus += (_, _) => Invalidate();
@@ -464,7 +468,6 @@ internal sealed class ChromeCloseButton : Button
     {
         TabStop = false;
         AccessibleName = "Close";
-        Cursor = Cursors.Hand;
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);

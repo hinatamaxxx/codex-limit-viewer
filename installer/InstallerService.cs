@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using Microsoft.Win32;
 
 namespace CodexLimitViewerSetup;
 
@@ -10,15 +11,20 @@ internal static class InstallerService
     internal static string InstallFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CodexLimitViewer"));
     internal static string AppPath => Path.Combine(InstallFolder, "CodexLimitViewer.exe");
     private static string SetupPath => Path.Combine(InstallFolder, "Setup.exe");
+    // Cache and the Claude Code bridge stay on this machine; settings roam with the user profile.
     private static string DataFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer"));
+    private static string SettingsFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CodexLimitViewer"));
     private static string StartMenuLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Codex Limit Viewer.lnk");
-    private static string UninstallLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Uninstall Codex Limit Viewer.lnk");
+    // v1.0 also placed an uninstall shortcut; uninstalling now happens from Settings → Apps → Installed apps.
+    private static string LegacyUninstallLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Uninstall Codex Limit Viewer.lnk");
     private static string StartupLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Codex Limit Viewer.lnk");
+    private static string DesktopLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Codex Limit Viewer.lnk");
     internal static bool StartupEnabled => File.Exists(StartupLink);
+    internal static bool DesktopEnabled => File.Exists(DesktopLink);
 
     internal static bool IsInsideInstallFolder(string path) => Path.GetFullPath(path).StartsWith(InstallFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    internal static void Install(bool startup, bool launch)
+    internal static void Install(bool startup, bool desktop, bool launch)
     {
         var parent = Directory.GetParent(InstallFolder)!.FullName;
         Directory.CreateDirectory(parent);
@@ -26,7 +32,8 @@ internal static class InstallerService
         var stage = Path.Combine(parent, ".CodexLimitViewer-stage-" + identifier);
         var backup = Path.Combine(parent, ".CodexLimitViewer-backup-" + identifier);
         bool hadExisting = Directory.Exists(InstallFolder), oldMoved = false, newMoved = false, committed = false;
-        var links = new[] { StartMenuLink, UninstallLink, StartupLink }.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
+        var links = new[] { StartMenuLink, LegacyUninstallLink, StartupLink, DesktopLink }.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
+        var registration = UninstallEntry.Read();
         try
         {
             Directory.CreateDirectory(stage);
@@ -35,15 +42,19 @@ internal static class InstallerService
             File.WriteAllText(Path.Combine(stage, ".installation-id"), identifier);
             // A full directory replacement prevents old versions and portable markers from surviving an update.
             File.Delete(Path.Combine(stage, "portable.flag"));
+            File.Delete(Path.Combine(stage, "portable"));
             File.Copy(Environment.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "Setup.exe"), true);
             StopUserApps();
             PreserveLegacyPortableData();
             if (hadExisting) { Directory.Move(InstallFolder, backup); oldMoved = true; }
             Directory.Move(stage, InstallFolder); newMoved = true;
             Shortcuts.Create(StartMenuLink, AppPath, InstallFolder);
-            Shortcuts.Create(UninstallLink, SetupPath, InstallFolder, "--uninstall");
+            Shortcuts.RemoveIfTarget(LegacyUninstallLink, SetupPath);
             if (startup) Shortcuts.Create(StartupLink, AppPath, InstallFolder);
             else if (File.Exists(StartupLink)) File.Delete(StartupLink);
+            if (desktop) Shortcuts.Create(DesktopLink, AppPath, InstallFolder);
+            else Shortcuts.RemoveIfTarget(DesktopLink, AppPath);
+            UninstallEntry.Write(AppPath, SetupPath, InstallFolder, typeof(InstallerService).Assembly.GetName().Version!.ToString(3), FolderSizeKilobytes(InstallFolder));
             committed = true;
         }
         catch
@@ -55,6 +66,7 @@ internal static class InstallerService
                 if (contents == null) { if (File.Exists(path)) File.Delete(path); }
                 else { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, contents); }
             }
+            UninstallEntry.Restore(registration);
             throw;
         }
         finally
@@ -67,24 +79,32 @@ internal static class InstallerService
                 ?? throw new IOException("The app was installed, but could not be started.");
     }
 
-    internal static void Uninstall(bool removeData)
+    // keepData: leave settings and cache for a later reinstall. By default everything the app created is removed,
+    // except the Claude Code bridge script that Claude Code's own settings may still point at.
+    internal static void Uninstall(bool keepData)
     {
+        bool removeData = !keepData;
         StopUserApps();
         Shortcuts.RemoveIfTarget(StartMenuLink, AppPath);
-        Shortcuts.RemoveIfTarget(UninstallLink, SetupPath);
+        Shortcuts.RemoveIfTarget(LegacyUninstallLink, SetupPath);
         Shortcuts.RemoveIfTarget(StartupLink, AppPath);
+        Shortcuts.RemoveIfTarget(DesktopLink, AppPath);
+        UninstallEntry.Remove();
         if (IsInsideInstallFolder(Environment.ProcessPath!))
         {
             var marker = Path.Combine(InstallFolder, ".installation-id");
             if (!File.Exists(marker)) File.WriteAllText(marker, Guid.NewGuid().ToString("N"));
             var installationId = File.ReadAllText(marker).Trim();
             if (!Guid.TryParseExact(installationId, "N", out _)) throw new IOException("The installation identifier is invalid.");
-            StartRemovalHelper(InstallFolder, removeData ? DataFolder : null, null, installationId);
+            StartRemovalHelper(InstallFolder, removeData, null, installationId);
             return;
         }
         DeleteInstallFolder();
-        if (removeData) DeleteDataFolder();
+        if (removeData) { DeleteDataFolder(DataFolder, "LocalApplicationData"); DeleteDataFolder(SettingsFolder, "ApplicationData"); }
     }
+
+    private static int FolderSizeKilobytes(string folder) =>
+        (int)Math.Min(int.MaxValue, Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) / 1024);
 
     private static void ExtractPayload(string stage)
     {
@@ -106,7 +126,8 @@ internal static class InstallerService
     private static void PreserveLegacyPortableData()
     {
         var legacy = Path.Combine(InstallFolder, "Data");
-        if (!File.Exists(Path.Combine(InstallFolder, "portable.flag")) || !Directory.Exists(legacy)) return;
+        bool portable = File.Exists(Path.Combine(InstallFolder, "portable")) || File.Exists(Path.Combine(InstallFolder, "portable.flag"));
+        if (!portable || !Directory.Exists(legacy)) return;
         // A portable copy may have been put into the fixed installation location by hand. Preserve its full data
         // before replacing that directory, and use only missing files as installed defaults.
         var archive = Path.Combine(DataFolder, "ImportedPortable", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
@@ -182,10 +203,10 @@ internal static class InstallerService
         if (Directory.Exists(target)) Directory.Delete(target, true);
     }
 
-    private static void DeleteDataFolder()
+    private static void DeleteDataFolder(string folder, string knownFolder)
     {
-        var target = Path.GetFullPath(DataFolder);
-        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer"));
+        var target = Path.GetFullPath(folder);
+        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Enum.Parse<Environment.SpecialFolder>(knownFolder)), "CodexLimitViewer"));
         if (!target.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected data path.");
         if (!Directory.Exists(target)) return;
         foreach (var entry in Directory.EnumerateFileSystemEntries(target))
@@ -215,11 +236,11 @@ internal static class InstallerService
         var folder = Path.GetDirectoryName(Environment.ProcessPath!);
         if (folder == null || !Path.GetDirectoryName(folder)!.Equals(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) return;
         if (!Path.GetFileName(folder).StartsWith("CodexLimitViewerSetup-", StringComparison.Ordinal)) return;
-        try { StartRemovalHelper(null, null, folder); } catch { }
+        try { StartRemovalHelper(null, false, folder); } catch { }
     }
 
     // PowerShell remains in one shell and removes only exact, revalidated paths after this executable exits.
-    private static void StartRemovalHelper(string? install, string? data, string? temporarySetup, string? expectedInstallationId = null)
+    private static void StartRemovalHelper(string? install, bool removeData, string? temporarySetup, string? expectedInstallationId = null)
     {
         static string Literal(string value) => "'" + value.Replace("'", "''") + "'";
         var script = Path.Combine(Path.GetTempPath(), "CodexLimitViewer-Remove-" + Guid.NewGuid().ToString("N") + ".ps1");
@@ -238,19 +259,20 @@ internal static class InstallerService
                 "  $taskMarker = Join-Path $taskTarget '.installation-id'\r\n" +
                 "  if ([IO.File]::Exists($taskMarker) -and [IO.File]::ReadAllText($taskMarker).Trim() -eq " + Literal(expectedInstallationId) + ") {\r\n" +
                 "    if (Test-Path -LiteralPath $taskTarget) { Remove-Item -LiteralPath $taskTarget -Recurse -Force }\r\n";
-            if (data != null)
-                body += "    $taskExpectedData = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'CodexLimitViewer'))\r\n" +
-                    "    $taskData = [IO.Path]::GetFullPath(" + Literal(data) + ")\r\n" +
-                    "    if ($taskData -ne $taskExpectedData) { throw 'Unexpected data path' }\r\n" +
-                    "    if (Test-Path -LiteralPath $taskData) {\r\n" +
-                    "      foreach ($taskEntry in Get-ChildItem -LiteralPath $taskData -Force) {\r\n" +
-                    "        if ($taskEntry.Name -eq 'ClaudeCodeStatusLine.ps1') { continue }\r\n" +
-                    "        $taskEntryPath = [IO.Path]::GetFullPath($taskEntry.FullName)\r\n" +
-                    "        if (-not $taskEntryPath.StartsWith($taskData + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected data file path' }\r\n" +
-                    "        Remove-Item -LiteralPath $taskEntryPath -Recurse -Force\r\n" +
-                    "      }\r\n" +
-                    "      if (-not (Get-ChildItem -LiteralPath $taskData -Force)) { Remove-Item -LiteralPath $taskData -Force }\r\n" +
-                    "    }\r\n";
+            if (removeData)
+                foreach (var (folder, known) in new[] { (DataFolder, "LocalApplicationData"), (SettingsFolder, "ApplicationData") })
+                    body += "    $taskExpectedData = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('" + known + "')) 'CodexLimitViewer'))\r\n" +
+                        "    $taskData = [IO.Path]::GetFullPath(" + Literal(folder) + ")\r\n" +
+                        "    if ($taskData -ne $taskExpectedData) { throw 'Unexpected data path' }\r\n" +
+                        "    if (Test-Path -LiteralPath $taskData) {\r\n" +
+                        "      foreach ($taskEntry in Get-ChildItem -LiteralPath $taskData -Force) {\r\n" +
+                        "        if ($taskEntry.Name -eq 'ClaudeCodeStatusLine.ps1') { continue }\r\n" +
+                        "        $taskEntryPath = [IO.Path]::GetFullPath($taskEntry.FullName)\r\n" +
+                        "        if (-not $taskEntryPath.StartsWith($taskData + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected data file path' }\r\n" +
+                        "        Remove-Item -LiteralPath $taskEntryPath -Recurse -Force\r\n" +
+                        "      }\r\n" +
+                        "      if (-not (Get-ChildItem -LiteralPath $taskData -Force)) { Remove-Item -LiteralPath $taskData -Force }\r\n" +
+                        "    }\r\n";
             body += "  }\r\n} finally {\r\n  if ($taskOwnsMutex) { $taskMutex.ReleaseMutex() }\r\n  $taskMutex.Dispose()\r\n}\r\n";
         }
         if (temporarySetup != null)
@@ -265,6 +287,48 @@ internal static class InstallerService
         foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script }) helper.ArgumentList.Add(arg);
         _ = Process.Start(helper) ?? throw new IOException("Unable to start the uninstall cleanup.");
     }
+}
+
+// The one registry entry the setup writes: it lists the app under Settings → Apps → Installed apps.
+internal static class UninstallEntry
+{
+    private const string KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodexLimitViewer";
+
+    internal static Dictionary<string, (object Value, RegistryValueKind Kind)>? Read()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(KeyPath);
+        return key?.GetValueNames().ToDictionary(n => n, n => (key.GetValue(n, null, RegistryValueOptions.DoNotExpandEnvironmentNames)!, key.GetValueKind(n)));
+    }
+
+    internal static void Write(string app, string setup, string folder, string version, int sizeKilobytes)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
+        key.SetValue("DisplayName", "Codex Limit Viewer");
+        key.SetValue("DisplayVersion", version);
+        key.SetValue("Publisher", "hinatamaxxx");
+        key.SetValue("DisplayIcon", app + ",0");
+        key.SetValue("InstallLocation", folder);
+        key.SetValue("UninstallString", "\"" + setup + "\" --uninstall");
+        key.SetValue("QuietUninstallString", "\"" + setup + "\" --uninstall --silent");
+        key.SetValue("URLInfoAbout", "https://github.com/hinatamaxxx/codex-limit-viewer");
+        key.SetValue("EstimatedSize", sizeKilobytes, RegistryValueKind.DWord);
+        key.SetValue("NoModify", 1, RegistryValueKind.DWord);
+        key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
+    }
+
+    internal static void Restore(Dictionary<string, (object Value, RegistryValueKind Kind)>? previous)
+    {
+        try
+        {
+            Remove();
+            if (previous == null) return;
+            using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
+            foreach (var (name, (value, kind)) in previous) key.SetValue(name, value, kind);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+    }
+
+    internal static void Remove() => Registry.CurrentUser.DeleteSubKeyTree(KeyPath, throwOnMissingSubKey: false);
 }
 
 internal static class Shortcuts
@@ -291,6 +355,7 @@ internal static class Shortcuts
             if (shortcutObject != null) Marshal.FinalReleaseComObject(shortcutObject);
             Marshal.FinalReleaseComObject(shell);
         }
+        AppUserModel.Stamp(link);
     }
 
     internal static void RemoveIfTarget(string link, string target)
