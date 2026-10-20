@@ -79,7 +79,7 @@ internal static class ClaudeCodeUsage
     {
         if (!limits.TryGetProperty(key, out var window) || window.ValueKind != JsonValueKind.Object ||
             !window.TryGetProperty("used_percentage", out var used) || !used.TryGetDouble(out var percent) ||
-            !double.IsFinite(percent) || percent < 0 || percent > 100) return;
+            !CodexLimitViewer.Compat.IsFinite(percent) || percent < 0 || percent > 100) return;
         DateTimeOffset? reset = null;
         if (window.TryGetProperty("resets_at", out var r) && r.TryGetInt64(out var seconds))
         {

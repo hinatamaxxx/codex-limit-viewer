@@ -13,7 +13,7 @@ internal static class Providers
         var (exe, desktopApp) = FindCodex();
         if (exe == null) throw new InvalidOperationException(L.T("Codexをインストールしてログインしてください"));
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        psi.ArgumentList.Add("app-server");
+        psi.SetArguments(["app-server"]);
         // stdio is the default transport on both older and current app-server versions.
         using var proc = Process.Start(psi) ?? throw new InvalidOperationException(L.T("Codexを起動できません"));
         var errors = proc.StandardError.ReadToEndAsync();
@@ -30,7 +30,7 @@ internal static class Providers
         }
         finally
         {
-            if (!proc.HasExited) proc.Kill(true);
+            if (!proc.HasExited) proc.KillTree();
             await proc.WaitForExitAsync(CancellationToken.None);
             await errors;
         }
@@ -45,7 +45,7 @@ internal static class Providers
     {
         var bundled = Directory.Exists(folder) ? Directory.GetFiles(folder, "codex.exe", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
         if (bundled != null) return (bundled, true);
-        var path = pathVariable.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        var path = pathVariable.Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries);
         var onPath = path.Select(p => Path.Combine(p, "codex.exe")).FirstOrDefault(File.Exists);
         if (onPath != null) return (onPath, false);
         var npmFolders = path.Where(p => File.Exists(Path.Combine(p, "codex.cmd")))
@@ -65,7 +65,7 @@ internal static class Providers
         while (await proc.StandardOutput.ReadLineAsync(ct) is { } line)
         {
             // Skip log lines; only JSON-RPC messages are answers.
-            if (!line.TrimStart().StartsWith('{')) continue;
+            if (!line.TrimStart().StartsWith("{")) continue;
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             if (!root.TryGetProperty("id", out var rid) || !rid.TryGetInt32(out var n) || n != id) continue;
@@ -83,7 +83,7 @@ internal static class Providers
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "agy", "bin", "agy.exe");
         if (!File.Exists(exe))
-            exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => Path.Combine(p, "agy.exe")).FirstOrDefault(File.Exists) ?? throw new IOException(L.T("agyが見つかりません"));
         Directory.CreateDirectory(Preferences.Folder);
         var psi = new ProcessStartInfo(exe)
@@ -92,7 +92,7 @@ internal static class Providers
             RedirectStandardOutput = true, RedirectStandardError = true,
             RedirectStandardInput = true, WorkingDirectory = Preferences.Folder
         };
-        foreach (var arg in new[] { "-p", "/usage", "--output-format", "json" }) psi.ArgumentList.Add(arg);
+        psi.SetArguments(["-p", "/usage", "--output-format", "json"]);
         using var proc = Process.Start(psi) ?? throw new IOException(L.T("agyを起動できません"));
         proc.StandardInput.Close();
         var stdout = proc.StandardOutput.ReadToEndAsync();
@@ -111,7 +111,7 @@ internal static class Providers
         }
         finally
         {
-            if (!proc.HasExited) proc.Kill(true);
+            if (!proc.HasExited) proc.KillTree();
             await proc.WaitForExitAsync(CancellationToken.None);
             await stderr;
         }

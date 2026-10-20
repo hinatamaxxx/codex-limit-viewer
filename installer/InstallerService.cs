@@ -1,3 +1,4 @@
+using CodexLimitViewer;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -40,7 +41,7 @@ internal static class InstallerService
             Directory.CreateDirectory(stage);
             ExtractPayload(stage);
             // The setup is the app itself: install this very executable.
-            File.Copy(Environment.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "CodexLimitViewer.exe"), true);
+            File.Copy(CodexLimitViewer.Compat.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "CodexLimitViewer.exe"), true);
             File.WriteAllText(Path.Combine(stage, ".installation-id"), identifier);
             // A full directory replacement prevents old versions and portable markers from surviving an update.
             File.Delete(Path.Combine(stage, "portable.flag"));
@@ -91,7 +92,7 @@ internal static class InstallerService
         Shortcuts.RemoveIfTarget(StartupLink, AppPath);
         Shortcuts.RemoveIfTarget(DesktopLink, AppPath);
         UninstallEntry.Remove();
-        if (IsInsideInstallFolder(Environment.ProcessPath!))
+        if (IsInsideInstallFolder(CodexLimitViewer.Compat.ProcessPath!))
         {
             var marker = Path.Combine(InstallFolder, ".installation-id");
             if (!File.Exists(marker)) File.WriteAllText(marker, Guid.NewGuid().ToString("N"));
@@ -165,14 +166,14 @@ internal static class InstallerService
         {
             using (process)
             {
-                if (process.Id == Environment.ProcessId) continue; // Uninstalling runs from the app's own exe.
+                if (process.Id == CodexLimitViewer.Compat.ProcessId) continue; // Uninstalling runs from the app's own exe.
                 try
                 {
                     var owner = OwnerSid(process.Id);
                     if (owner == null && process.SessionId == Process.GetCurrentProcess().SessionId)
                         throw new IOException("Please close Codex Limit Viewer before continuing.");
                     if (owner != currentSid) continue;
-                    process.Kill(entireProcessTree: true);
+                    process.KillTree();
                     if (!process.WaitForExit(10000)) throw new IOException("Please close Codex Limit Viewer before continuing.");
                 }
                 catch (InvalidOperationException) { } // The app already exited.
@@ -209,7 +210,7 @@ internal static class InstallerService
     private static void DeleteDataFolder(string folder, string knownFolder)
     {
         var target = Path.GetFullPath(folder);
-        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Enum.Parse<Environment.SpecialFolder>(knownFolder)), "CodexLimitViewer"));
+        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath((Environment.SpecialFolder)Enum.Parse(typeof(Environment.SpecialFolder), knownFolder)), "CodexLimitViewer"));
         if (!target.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected data path.");
         if (!Directory.Exists(target)) return;
         foreach (var entry in Directory.EnumerateFileSystemEntries(target))
@@ -236,7 +237,7 @@ internal static class InstallerService
 
     internal static void ScheduleTemporarySetupCleanup()
     {
-        var folder = Path.GetDirectoryName(Environment.ProcessPath!);
+        var folder = Path.GetDirectoryName(CodexLimitViewer.Compat.ProcessPath!);
         if (folder == null || !Path.GetDirectoryName(folder)!.Equals(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) return;
         if (!Path.GetFileName(folder).StartsWith("CodexLimitViewerSetup-", StringComparison.Ordinal)) return;
         try { StartRemovalHelper(null, false, folder); } catch { }
@@ -248,7 +249,7 @@ internal static class InstallerService
         static string Literal(string value) => "'" + value.Replace("'", "''") + "'";
         var script = Path.Combine(Path.GetTempPath(), "CodexLimitViewer-Remove-" + Guid.NewGuid().ToString("N") + ".ps1");
         var body = "$ErrorActionPreference = 'Stop'\r\n" +
-            "$taskProcess = Get-Process -Id " + Environment.ProcessId + " -ErrorAction SilentlyContinue\r\n" +
+            "$taskProcess = Get-Process -Id " + CodexLimitViewer.Compat.ProcessId + " -ErrorAction SilentlyContinue\r\n" +
             "if ($taskProcess) { $taskProcess.WaitForExit() }\r\n";
         if (install != null)
         {
@@ -287,7 +288,7 @@ internal static class InstallerService
         File.WriteAllText(script, body, new System.Text.UTF8Encoding(true));
         var helper = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"))
         { UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden };
-        foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script }) helper.ArgumentList.Add(arg);
+        helper.SetArguments(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script]);
         _ = Process.Start(helper) ?? throw new IOException("Unable to start the uninstall cleanup.");
     }
 }

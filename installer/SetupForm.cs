@@ -145,7 +145,7 @@ internal sealed class SetupForm : Form
 
     private void LayoutUi()
     {
-        scale = (previewDpi ?? DeviceDpi) / 96f;
+        scale = (previewDpi ?? CodexLimitViewer.Compat.SystemDpi) / 96f;
         SuspendLayout();
         try
         {
@@ -200,11 +200,11 @@ internal sealed class SetupForm : Form
         while (TextRenderer.MeasureText(remaining, font, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width > width)
         {
             int fit = remaining.Length - 1;
-            while (fit > 1 && TextRenderer.MeasureText(remaining[..fit], font, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width > width) fit--;
+            while (fit > 1 && TextRenderer.MeasureText(remaining.Substring(0, fit), font, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width > width) fit--;
             int separator = remaining.LastIndexOf(Path.DirectorySeparatorChar, fit - 1, fit);
             int cut = separator > 0 ? separator + 1 : fit;
-            lines.Add(remaining[..cut]);
-            remaining = remaining[cut..];
+            lines.Add(remaining.Substring(0, cut));
+            remaining = remaining.Substring(cut);
         }
         lines.Add(remaining);
         return string.Join(Environment.NewLine, lines);
@@ -305,7 +305,7 @@ internal sealed class RoundedCard : Panel
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = Shapes.Rounded(new RectangleF(.5f, .5f, Width - 1, Height - 1), 12 * DeviceDpi / 96f);
+        using var path = Shapes.Rounded(new RectangleF(.5f, .5f, Width - 1, Height - 1), 12 * CodexLimitViewer.Compat.SystemDpi / 96f);
         using var fill = new SolidBrush(Color.FromArgb(40, 41, 47));
         using var border = new Pen(Color.FromArgb(60, 63, 73));
         e.Graphics.FillPath(fill, path);

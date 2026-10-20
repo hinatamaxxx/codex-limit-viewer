@@ -18,7 +18,7 @@ internal static class UpdateCheck
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         using var response = await client.GetAsync(LatestRelease, token);
         if (!response.IsSuccessStatusCode) return null;
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return doc.RootElement.TryGetProperty("tag_name", out var tag) && tag.ValueKind == JsonValueKind.String
             ? Newer(tag.GetString()!, Current) : null;
     }

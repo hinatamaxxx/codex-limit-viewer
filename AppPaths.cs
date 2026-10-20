@@ -44,7 +44,7 @@ internal static class StartupShortcut
             File.Delete(PathName);
             return true;
         }
-        string exe = Environment.ProcessPath ?? throw new IOException("Application path is unavailable.");
+        string exe = CodexLimitViewer.Compat.ProcessPath ?? throw new IOException("Application path is unavailable.");
         Directory.CreateDirectory(Path.GetDirectoryName(PathName)!);
         var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new IOException("Windows shortcuts are unavailable.");
         object shell = Activator.CreateInstance(type)!;
