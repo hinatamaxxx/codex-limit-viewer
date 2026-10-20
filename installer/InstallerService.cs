@@ -10,6 +10,7 @@ internal static class InstallerService
 {
     internal static string InstallFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CodexLimitViewer"));
     internal static string AppPath => Path.Combine(InstallFolder, "CodexLimitViewer.exe");
+    // v1.0/v1.1 kept a second copy of the setup here; the app exe now uninstalls itself.
     private static string SetupPath => Path.Combine(InstallFolder, "Setup.exe");
     // Cache and the Claude Code bridge stay on this machine; settings roam with the user profile.
     private static string DataFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer"));
@@ -38,12 +39,12 @@ internal static class InstallerService
         {
             Directory.CreateDirectory(stage);
             ExtractPayload(stage);
-            if (!File.Exists(Path.Combine(stage, "CodexLimitViewer.exe"))) throw new IOException("The installer payload is missing CodexLimitViewer.exe.");
+            // The setup is the app itself: install this very executable.
+            File.Copy(Environment.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "CodexLimitViewer.exe"), true);
             File.WriteAllText(Path.Combine(stage, ".installation-id"), identifier);
             // A full directory replacement prevents old versions and portable markers from surviving an update.
             File.Delete(Path.Combine(stage, "portable.flag"));
             File.Delete(Path.Combine(stage, "portable"));
-            File.Copy(Environment.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "Setup.exe"), true);
             StopUserApps();
             PreserveLegacyPortableData();
             if (hadExisting) { Directory.Move(InstallFolder, backup); oldMoved = true; }
@@ -54,7 +55,7 @@ internal static class InstallerService
             else if (File.Exists(StartupLink)) File.Delete(StartupLink);
             if (desktop) Shortcuts.Create(DesktopLink, AppPath, InstallFolder);
             else Shortcuts.RemoveIfTarget(DesktopLink, AppPath);
-            UninstallEntry.Write(AppPath, SetupPath, InstallFolder, typeof(InstallerService).Assembly.GetName().Version!.ToString(3), FolderSizeKilobytes(InstallFolder));
+            UninstallEntry.Write(AppPath, AppPath, InstallFolder, typeof(InstallerService).Assembly.GetName().Version!.ToString(3), FolderSizeKilobytes(InstallFolder));
             committed = true;
         }
         catch
@@ -108,8 +109,9 @@ internal static class InstallerService
 
     private static void ExtractPayload(string stage)
     {
-        using var stream = typeof(InstallerService).Assembly.GetManifestResourceStream("CodexLimitViewerSetup.Payload.zip")
-            ?? throw new IOException("The installer payload is unavailable.");
+        // Documents and helper scripts installed beside the app; development builds have none.
+        using var stream = typeof(InstallerService).Assembly.GetManifestResourceStream("CodexLimitViewerSetup.Payload.zip");
+        if (stream == null) return;
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
         foreach (var entry in zip.Entries)
         {
@@ -163,6 +165,7 @@ internal static class InstallerService
         {
             using (process)
             {
+                if (process.Id == Environment.ProcessId) continue; // Uninstalling runs from the app's own exe.
                 try
                 {
                     var owner = OwnerSid(process.Id);
