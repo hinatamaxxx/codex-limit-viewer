@@ -3,14 +3,18 @@ using System.Runtime.InteropServices;
 
 namespace CodexLimitViewerSetup;
 
-internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bool? Startup, bool RemoveData, bool English)
+// Uninstalling removes settings and cache by default; --keep-settings keeps them (--remove-data is accepted from v1.0).
+internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bool? Startup, bool? Desktop, bool KeepData, bool English)
 {
     internal static SetupOptions Parse(string[] args)
     {
         bool Has(string value) => args.Contains(value, StringComparer.OrdinalIgnoreCase);
         if (Has("--startup") && Has("--no-startup")) throw new ArgumentException("Choose --startup or --no-startup.");
+        if (Has("--desktop") && Has("--no-desktop")) throw new ArgumentException("Choose --desktop or --no-desktop.");
+        if (Has("--keep-settings") && Has("--remove-data")) throw new ArgumentException("Choose --keep-settings or --remove-data.");
         return new(Has("--silent"), Has("--uninstall"), !Has("--no-launch"),
-            Has("--startup") ? true : Has("--no-startup") ? false : null, Has("--remove-data"), Has("--english"));
+            Has("--startup") ? true : Has("--no-startup") ? false : null,
+            Has("--desktop") ? true : Has("--no-desktop") ? false : null, Has("--keep-settings"), Has("--english"));
     }
 }
 
@@ -110,8 +114,8 @@ internal static class Program
         {
             if (options.Silent)
             {
-                if (options.Uninstall) InstallerService.Uninstall(options.RemoveData);
-                else InstallerService.Install(options.Startup ?? InstallerService.StartupEnabled, options.Launch);
+                if (options.Uninstall) InstallerService.Uninstall(options.KeepData);
+                else InstallerService.Install(options.Startup ?? InstallerService.StartupEnabled, options.Desktop ?? InstallerService.DesktopEnabled, options.Launch);
                 return 0;
             }
             ApplicationConfiguration.Initialize();

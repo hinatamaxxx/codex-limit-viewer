@@ -50,7 +50,7 @@ Choose this edition to run the app from an extracted folder without installation
 1. Download and extract `Codex-Limit-Viewer-v1.0.0-portable-win-x64.zip`.
 2. Run `CodexLimitViewer.exe` in the folder.
 
-Keep `portable.flag` in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
+Keep the `portable` file (`portable.flag` in v1.0.0) in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
 
 ### Keep the display visible
 
@@ -63,7 +63,7 @@ In Windows **Settings → Personalization → Taskbar → Other system tray icon
 | Action | Result |
 | --- | --- |
 | Left-click | Open details. Click again or outside the popup to close it. |
-| Right-click | Choose displayed services, refresh now, change hover behavior, select a language, or set startup. Choose “Exit” to stop the app. |
+| Right-click | Choose displayed services or refresh now. Hover behavior, startup and language are under “More”. “Exit” asks for confirmation before stopping the app. |
 | “Taskbar display” → “Top row / Bottom row” | Choose a service. Selecting the service already in the other row swaps the rows. |
 | Enable “Open details on hover” | Hover over the quota display to open details. Move the pointer outside both the display and popup to close it. |
 
@@ -77,9 +77,9 @@ Quota normally refreshes every minute. During rate limits, the app keeps the las
 
 ## Startup and updates
 
-Enable startup in setup or from the right-click menu. If you move a portable folder, turn startup off and on again to update its path.
+Enable startup in setup or under “More” in the right-click menu. You can also turn it on or off in Windows **Settings → Apps → Startup** or Task Manager; the menu check mark shows the same state. If you move a portable folder, turn startup off and on again to update its path.
 
-To update the setup edition, run the new setup EXE. It keeps your settings and replaces the app in the same folder. The install folder is `%LOCALAPPDATA%\Programs\CodexLimitViewer`; settings and cache are in `%LOCALAPPDATA%\CodexLimitViewer`.
+The app checks for a new version at launch and every six hours. When one is available, the right-click menu shows “Download version …”. To update the setup edition, run the new setup EXE. It keeps your settings and replaces the app in the same folder.
 
 To update the portable edition, exit the app and extract the new ZIP. To keep your settings, copy the original `Data` folder beside the new EXE. Update startup settings if the folder changes.
 
@@ -101,11 +101,24 @@ For the portable edition, run `EnableClaudeCode.ps1` in the extracted folder. Th
 
 Settings and quota cache are stored on this PC. The app uses Claude's sign-in only for quota requests and authentication renewal with Anthropic. If it expires, the app renews the CLI sign-in and writes it back to the CLI credentials file. Credentials are not copied to a separate app-owned location or written to logs.
 
-Installation and startup settings do not change the registry. The app is not listed in Windows Settings → Installed apps; use the Start Menu to launch or uninstall it.
+### Registry and files the app changes
+
+| Kind | Location |
+| --- | --- |
+| Registry (setup edition only) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\CodexLimitViewer` (the Installed apps entry; nothing else is written) |
+| Program | `%LOCALAPPDATA%\Programs\CodexLimitViewer` |
+| Settings | `%APPDATA%\CodexLimitViewer\settings.json` (moved automatically from `%LOCALAPPDATA%` used by v1.0.0) |
+| Quota cache, diagnostics, status-line bridge script | `%LOCALAPPDATA%\CodexLimitViewer` |
+| Start menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Codex Limit Viewer.lnk` |
+| Startup (only when on) | `Codex Limit Viewer.lnk` in the Startup folder |
+| Desktop (only when chosen) | `Codex Limit Viewer.lnk` on the desktop |
+
+When you switch startup in Windows settings, Windows itself records that choice. The app only reads it and never changes it.
 
 ## Uninstalling
 
-- **Setup edition**: Open “Uninstall Codex Limit Viewer” from the Start Menu. Settings and cache are kept by default, with an option to remove them. The Claude Code status-line bridge script is retained.
+- **Setup edition**: In Windows **Settings → Apps → Installed apps**, select “Codex Limit Viewer” and click **Uninstall**. By default, settings and quota cache are removed too; turn on “Keep settings and data” to carry them over to a reinstall. The Claude Code status-line bridge script is kept because Claude Code's settings may point to it.
+  - To run it from a command line, use `"%LOCALAPPDATA%\Programs\CodexLimitViewer\Setup.exe" --uninstall --silent`. Add `--keep-settings` to keep settings.
 - **Portable edition**: Disable startup, exit the app, and delete the extracted folder.
 
 Disable startup entries created by earlier versions through their settings or Windows “Startup.”

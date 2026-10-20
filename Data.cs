@@ -19,12 +19,25 @@ internal sealed class Preferences
     public bool FiveHourFirst { get; set; } = true;
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
+    // Cache and diagnostics; settings themselves live in AppPaths.SettingsDirectory.
     public static string Folder => AppPaths.DataDirectory;
+    private static string SettingsFile => Path.Combine(AppPaths.SettingsDirectory, "settings.json");
     public static Preferences Load()
     {
         try
         {
-            var value = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(Folder, "settings.json"))) ?? new();
+            // v1.0 kept settings with the cache in %LOCALAPPDATA%; move them to the roaming settings folder once.
+            var legacy = Path.Combine(Folder, "settings.json");
+            if (!File.Exists(SettingsFile) && File.Exists(legacy) && !legacy.Equals(SettingsFile, StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.CreateDirectory(AppPaths.SettingsDirectory);
+                File.Move(legacy, SettingsFile);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        try
+        {
+            var value = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(SettingsFile)) ?? new();
             if (!KnownProvider(value.TaskbarTop)) value.TaskbarTop = "Codex";
             if (!KnownProvider(value.TaskbarBottom) || value.TaskbarBottom == value.TaskbarTop)
                 value.TaskbarBottom = value.TaskbarTop == "Antigravity" ? "Codex" : "Antigravity";
@@ -50,8 +63,8 @@ internal sealed class Preferences
     }
     public void Save()
     {
-        Directory.CreateDirectory(Folder);
-        File.WriteAllText(Path.Combine(Folder, "settings.json"), JsonSerializer.Serialize(this));
+        Directory.CreateDirectory(AppPaths.SettingsDirectory);
+        File.WriteAllText(SettingsFile, JsonSerializer.Serialize(this));
     }
 }
 internal static class QuotaParser

@@ -23,11 +23,25 @@ internal static class L
 
 internal static class TooltipText
 {
-    internal static string For(Reading reading)
+    internal const int Limit = 63; // NotifyIcon.Text maximum.
+    internal static string Title => "Codex Limit Viewer " + UpdateCheck.Current.ToString(3);
+
+    internal static string Status(Reading reading)
     {
         var stale = reading.Stale ? " (" + L.T("前回の値") + ")" : "";
         return L.English
-            ? $"{ClockTextRenderer.TaskbarName(reading.Provider)} {ClockTextRenderer.TaskbarValue(reading)} remaining{stale}\nClick for details"
-            : $"{ClockTextRenderer.TaskbarName(reading.Provider)} 残り {ClockTextRenderer.TaskbarValue(reading)}{stale}\nクリックで詳細";
+            ? $"{ClockTextRenderer.TaskbarName(reading.Provider)} {ClockTextRenderer.TaskbarValue(reading)} remaining{stale}"
+            : $"{ClockTextRenderer.TaskbarName(reading.Provider)} 残り {ClockTextRenderer.TaskbarValue(reading)}{stale}";
+    }
+
+    internal static string? UpdateNotice(Version? newer) => newer == null ? null : L.F("新しいバージョン {version} があります", ("version", newer.ToString(3)));
+
+    // App and version, then status, then one extra line; lower lines are dropped to stay within the limit.
+    internal static string For(params string?[] lines)
+    {
+        var kept = lines.Where(l => !string.IsNullOrEmpty(l)).ToList();
+        while (kept.Count > 1 && string.Join("\n", kept).Length > Limit) kept.RemoveAt(kept.Count - 1);
+        var text = string.Join("\n", kept);
+        return text.Length > Limit ? text[..Limit] : text;
     }
 }

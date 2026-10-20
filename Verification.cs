@@ -123,6 +123,15 @@ internal static class Verification
                 ClockTextRenderer.TaskbarValue(new Reading("Antigravity", [new("gemini-5h", 50, null), new("gemini-weekly", 90, null)], DateTimeOffset.UtcNow)) == "50%",
                 "Services without both windows keep a single taskbar value", results);
             Check(ClockTextRenderer.TaskbarName("Claude Code") == "Claude" && ClockTextRenderer.TaskbarName("Codex") == "Codex", "Taskbar shortens Claude Code to Claude", results);
+            Check(StartupShortcut.IsApprovedByWindows(null) && StartupShortcut.IsApprovedByWindows([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) &&
+                StartupShortcut.IsApprovedByWindows([6]) && !StartupShortcut.IsApprovedByWindows([3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) &&
+                !StartupShortcut.IsApprovedByWindows([1]), "Windows startup switch is read from StartupApproved", results);
+            Check(UpdateCheck.Newer("v1.2.0", new Version(1, 1, 0)) == new Version(1, 2, 0) && UpdateCheck.Newer("v1.1.0", new Version(1, 1, 0)) == null &&
+                UpdateCheck.Newer("1.0.9", new Version(1, 1, 0)) == null && UpdateCheck.Newer("nightly", new Version(1, 1, 0)) == null,
+                "Only a newer release tag is offered as an update", results);
+            var tip = TooltipText.For(TooltipText.Title, TooltipText.Status(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)), TooltipText.UpdateNotice(new Version(1, 2, 0)));
+            Check(tip.Length <= TooltipText.Limit && tip.StartsWith("Codex Limit Viewer ") && tip.Split('\n').Length == 3, "Tray tooltip has three short lines", results);
+            Check(TooltipText.For("Codex Limit Viewer 1.1.0", new string('a', 30), new string('b', 30)).Split('\n').Length == 2, "Tooltip drops its last line to fit", results);
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;
@@ -136,40 +145,8 @@ internal static class Verification
     {
         if (!value) throw new Exception(name); results.Add("PASS " + name);
     }
-    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr GetWindowLongPtr(IntPtr handle, int index);
     internal static int Render(bool live = false)
     {
-        using var menu = new TrayContextMenu();
-        using var submenu = new TraySubMenu();
-        menu.Items.Add("Menu test");
-        menu.Show(new Point(0, 0));
-        Application.DoEvents();
-        if (!menu.AutoClose || !submenu.AutoClose || (GetWindowLongPtr(menu.Handle, -20).ToInt64() & 0x80) == 0 ||
-            (GetWindowLongPtr(submenu.Handle, -20).ToInt64() & 0x80) == 0)
-            throw new Exception("Tray menus must stay open for settings changes and never create taskbar buttons.");
-        var anchor = new Rectangle(800, 800, 192, 72);
-        menu.TrayAnchor = () => anchor;
-        menu.Close();
-        menu.Show(new Point(10, 10));
-        Application.DoEvents();
-        var cursorBeforeClick = Cursor.Position;
-        Cursor.Position = new Point(menu.Left + 5, menu.Top + 5);
-        menu.Items[0].PerformClick();
-        Application.DoEvents();
-        var stayedOpen = menu.Visible;
-        Cursor.Position = cursorBeforeClick;
-        if (!stayedOpen) throw new Exception("Clicking a settings item must keep the menu open.");
-        var firstPosition = menu.Location;
-        menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), false);
-        menu.ObservePointer(new Point(menu.Left + 5, menu.Top + 5), true);
-        if (!menu.Visible) throw new Exception("An inside click must not dismiss the menu.");
-        menu.ObservePointer(Point.Empty, false);
-        menu.ObservePointer(Point.Empty, true);
-        if (menu.Visible) throw new Exception("An outside click must dismiss the menu.");
-        menu.Show(new Point(400, 400));
-        Application.DoEvents();
-        if (menu.Location != firstPosition) throw new Exception("Menu position must not depend on click position.");
-        menu.Close();
         using var f = new DetailsForm(new Preferences());
         var c = new Reading("Codex", [new("5時間", 72, DateTimeOffset.UtcNow.AddHours(2)), new("週間", 43, DateTimeOffset.UtcNow.AddDays(3))], DateTimeOffset.UtcNow, Source: L.T("Codexアプリ経由"));
         var a = new Reading("Antigravity", [new("gemini-weekly", 86, DateTimeOffset.UtcNow.AddDays(4))], DateTimeOffset.UtcNow, Source: L.T("agy CLI経由"));
@@ -190,6 +167,44 @@ internal static class Verification
         using (var grokDetails = new Bitmap(f.Width, f.Height)) { f.DrawToBitmap(grokDetails, f.ClientRectangle); grokDetails.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-details.png")); }
         using (var selectedGrok = ClockTextRenderer.Render(192, 72, 144, c, exampleGrok))
             selectedGrok.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-taskbar.png"));
-        f.Hide(); return 0;
+        f.Hide();
+        RenderMenu(Path.Combine(AppContext.BaseDirectory, "preview-menu.png"));
+        using (var exit = new ExitDialog())
+        {
+            exit.Show(); exit.Refresh(); Application.DoEvents(); Thread.Sleep(300); Application.DoEvents();
+            using var shot = new Bitmap(exit.Width, exit.Height);
+            using (var g = Graphics.FromImage(shot)) g.CopyFromScreen(exit.Location, Point.Empty, exit.Size);
+            shot.Save(Path.Combine(AppContext.BaseDirectory, "preview-exit.png"));
+        }
+        return 0;
+    }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool EndMenu();
+    // Opens the real Win32 tray menu near the bottom-right corner, captures that screen area, then closes it.
+    private static void RenderMenu(string output)
+    {
+        using var menu = new TrayMenu();
+        var screen = Screen.PrimaryScreen!.Bounds;
+        var anchor = new Rectangle(screen.Right - 420, screen.Bottom - 48, 96, 48);
+        menu.Build = () =>
+        [
+            new(TooltipText.Title, Enabled: false), new(L.F("{time} に残量を更新しました", ("time", "16:45")), Enabled: false),
+            new(L.F("新しいバージョン {version} をダウンロード", ("version", "1.2.0"))), MenuEntry.Separator,
+            new(L.T("パネルを開く"), Default: true), new(L.T("今すぐ更新")),
+            new(L.T("タスクバー表示"), Children: [new(L.T("上段")), new(L.T("下段"))]),
+            new(L.T("その他"), Children: [new(L.T("ホバーで詳細を開く"), Checked: true)]),
+            MenuEntry.Separator, new(L.T("終了")),
+        ];
+        using var timer = new System.Windows.Forms.Timer { Interval = 700 };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            var area = new Rectangle(screen.Right - 900, screen.Bottom - 640, 900, 640);
+            using var shot = new Bitmap(area.Width, area.Height);
+            using (var g = Graphics.FromImage(shot)) g.CopyFromScreen(area.Location, Point.Empty, area.Size);
+            shot.Save(output);
+            EndMenu();
+        };
+        timer.Start();
+        menu.Show(anchor, new Point(anchor.Left + 48, anchor.Top + 24));
     }
 }

@@ -51,7 +51,6 @@
     "週間（5時間）の順":  "Weekly (5-hour) order",
     "下段":  "Bottom row",
     "Codex Limit Viewer 表示スペース {++slotNumber}":  "Codex Limit Viewer display slot {++slotNumber}",
-    "Windows起動時に開始":  "Start with Windows",
     "パネルを開く":  "Open panel",
     "{day} {time} にリセット（あと{left}）":  "Resets {day} {time} (in {left})",
     "{d}日{h}時間":  "{d}d {h}h",
@@ -79,5 +78,19 @@
     "接続しています…":  "Connecting…",
     "前回の値":  "Previous value",
     "通知領域に収納":  "Minimize to tray",
-    "未接続":  "Not connected"
+    "未接続":  "Not connected",
+    "Windows起動時に自動起動":  "Start with Windows",
+    "その他":  "More",
+    "クリックで詳細":  "Click for details",
+    "新しいバージョン {version} があります":  "Version {version} is available",
+    "新しいバージョン {version} をダウンロード":  "Download version {version}",
+    "残量を更新しています…":  "Refreshing limits…",
+    "残量を取得できていません":  "No limits fetched yet",
+    "{time} に残量を更新しました":  "Limits updated at {time}",
+    "Windowsのスタートアップ設定でオフになっています。開いた設定画面で「Codex Limit Viewer」をオンにしてください。":  "Startup is turned off in Windows settings. Turn on \"Codex Limit Viewer\" in the settings page that opens.",
+    "Codex Limit Viewer を終了しますか？":  "Exit Codex Limit Viewer?",
+    "終了すると、タスクバーの残量表示と定期的な更新が止まります。":  "The taskbar limits and periodic refreshes stop when you exit.",
+    "もう一度使うときは、スタートメニューの「Codex Limit Viewer」から起動してください。自動起動がオンなら、次にサインインしたときにも起動します。":  "To use it again, open \"Codex Limit Viewer\" from the Start menu. If startup is on, it also starts the next time you sign in.",
+    "終了する":  "Exit",
+    "キャンセル":  "Cancel"
 }

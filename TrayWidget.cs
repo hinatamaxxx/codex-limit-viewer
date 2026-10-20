@@ -7,7 +7,7 @@ namespace CodexLimitViewer;
 internal sealed class TrayWidget : Form
 {
     private readonly NotifyIcon[] slots;
-    private readonly ContextMenuStrip menu;
+    private readonly TrayMenu menu;
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 250 };
     private readonly ToolTip tooltip = new();
     private Reading topReading = new("Codex", [], null), bottomReading = new("Antigravity", [], null);
@@ -21,7 +21,8 @@ internal sealed class TrayWidget : Form
     internal event Action? OpenDetails;
     internal event Action? HoverDetails;
     internal Func<bool>? HoverDetailsEnabled;
-    internal TrayWidget(NotifyIcon[] slots, ContextMenuStrip menu)
+    internal Func<string>? TooltipText;
+    internal TrayWidget(NotifyIcon[] slots, TrayMenu menu)
     {
         this.slots = slots;
         this.menu = menu;
@@ -34,7 +35,6 @@ internal sealed class TrayWidget : Form
         BackColor = Color.FromArgb(35, 35, 35);
         Text = "Codex Limit Viewer Taskbar";
         AccessibleName = L.T("CodexとAntigravityの残り使用量");
-        ContextMenuStrip = menu;
         Cursor = Cursors.Hand;
         timer.Tick += (_, _) => Align();
         timer.Start();
@@ -49,6 +49,7 @@ internal sealed class TrayWidget : Form
         }
         base.WndProc(ref message);
         if (message.Msg == 0x0202) OpenDetails?.Invoke();
+        if (message.Msg == 0x0205) { UpdateTooltip(); menu.Show(ScreenBounds); } // WM_RBUTTONUP
     }
     protected override CreateParams CreateParams
     {
@@ -124,20 +125,20 @@ internal sealed class TrayWidget : Form
         }
         if (hovered && !hoverHandled)
         {
-            if (menu.Visible) hoverHandled = true;
+            if (menu.IsOpen) hoverHandled = true;
             else if (Environment.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
             {
                 hoverHandled = true;
                 HoverDetails?.Invoke();
             }
         }
-        bool showName = hovered && !menu.Visible && HoverDetailsEnabled?.Invoke() == false &&
+        bool showName = hovered && !menu.IsOpen && HoverDetailsEnabled?.Invoke() == false &&
             Environment.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
         if (showName && !tooltipVisible)
         {
-            const string appName = "Codex Limit Viewer";
-            int tooltipWidth = TextRenderer.MeasureText(appName, SystemFonts.StatusFont).Width + 8;
-            tooltip.Show(appName, this, (Width - tooltipWidth) / 2, -8, 5000);
+            string text = TooltipText?.Invoke() ?? "Codex Limit Viewer";
+            var size = TextRenderer.MeasureText(text, SystemFonts.StatusFont);
+            tooltip.Show(text, this, (Width - size.Width - 8) / 2, -size.Height - 12, 5000);
             tooltipVisible = true;
         }
         else if (!showName) UpdateTooltip();
