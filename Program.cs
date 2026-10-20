@@ -72,6 +72,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly System.Windows.Forms.Timer updateTimer = new() { Interval = 6 * 60 * 60 * 1000 };
     private readonly EventWaitHandle showSignal = new(false, EventResetMode.AutoReset, Program.ShowSignal);
     private readonly RegisteredWaitHandle showWait;
+    private readonly SynchronizationContext ui;
 
     private readonly CancellationTokenSource stop = new();
     private readonly DetailsForm form;
@@ -112,7 +113,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         form.RefreshRequested += () => _ = Refresh(force: true);
         // Dragging a card into the first two places of the usage popup picks the taskbar's two rows.
         form.TaskbarChanged += Apply;
-        var ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+        ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         showWait = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => ui.Post(_ => OpenPanel(), null), null, -1, false);
         tray.Icon = TrayPresentation.ReservationIcon(); tray.Text = "Codex Limit Viewer"; tray.Visible = true;
         agyTray.Icon = TrayPresentation.ReservationIcon(); agyTray.Text = "Antigravity"; agyTray.Visible = true;
@@ -132,6 +133,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             icon.MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Left) OpenPanel(); };
         }
         poll.Tick += (_, _) => _ = Refresh();
+        // Nobody reads the taskbar while the session is locked or asleep: pause polling, and refresh right after return.
+        Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
         updateTimer.Tick += (_, _) => _ = CheckForUpdate();
 
         poll.Start();
@@ -229,8 +233,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (busy) { forceQueued |= force; return; }
         if (closing) return;
         busy = true; Apply();
-        var agyTask = RefreshAntigravity();
-        var grokTask = RefreshGrok();
+        var agyTask = RefreshAntigravity(force);
+        var grokTask = RefreshGrok(force);
         var claudeTask = RefreshClaude(force);
         try { codex = await Providers.Codex(stop.Token); }
         catch (OperationCanceledException) { codex = codex with { Error = L.T("接続がタイムアウトしました") }; }
@@ -248,8 +252,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             }
         }
     }
-    private async Task RefreshAntigravity()
+    // Weekly limits that start a CLI process change slowly; ask every few minutes unless the reader asked to refresh now.
+    private static readonly TimeSpan SlowInterval = TimeSpan.FromMinutes(3);
+    private static bool RecentlyFetched(Reading reading) =>
+        reading.Error == null && reading.Updated is { } at && DateTimeOffset.UtcNow - at < SlowInterval;
+    private async Task RefreshAntigravity(bool force)
     {
+        if (!force && RecentlyFetched(agy)) return;
         try { agy = await Providers.AntigravityLive(stop.Token); }
         catch (OperationCanceledException) { agy = agy with { Error = L.T("取得がタイムアウトしました") }; }
         catch (Exception e) { agy = agy with { Error = e.Message }; }
@@ -269,8 +278,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             else claude = snapshot is { Quotas.Count: > 0 } ? snapshot : new Reading("Claude Code", [], null, message);
         }
     }
-    private async Task RefreshGrok()
+    private async Task RefreshGrok(bool force)
     {
+        if (!force && RecentlyFetched(grok)) return;
         try { grok = await GrokUsage.ReadLive(stop.Token); }
         catch (OperationCanceledException) { grok = grok with { Error = L.T("取得がタイムアウトしました") }; }
         catch (Exception e) { grok = grok with { Error = e.Message }; }
@@ -301,8 +311,32 @@ internal sealed class TrayApplicationContext : ApplicationContext
         "Grok" => grok,
         _ => codex
     };
+    private void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)
+    {
+        if (e.Reason is Microsoft.Win32.SessionSwitchReason.SessionLock or Microsoft.Win32.SessionSwitchReason.ConsoleDisconnect
+            or Microsoft.Win32.SessionSwitchReason.RemoteDisconnect) Pause();
+        else if (e.Reason is Microsoft.Win32.SessionSwitchReason.SessionUnlock or Microsoft.Win32.SessionSwitchReason.ConsoleConnect
+            or Microsoft.Win32.SessionSwitchReason.RemoteConnect) Resume();
+    }
+    private void OnPowerModeChanged(object? sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == Microsoft.Win32.PowerModes.Suspend) Pause();
+        else if (e.Mode == Microsoft.Win32.PowerModes.Resume) Resume();
+    }
+    // System events may arrive on their own thread; timers and readings belong to the UI thread.
+    private void Pause() => ui.Post(_ => { if (!closing) poll.Stop(); }, null);
+    private void Resume() => ui.Post(_ => ResumePolling(), null);
+    private void ResumePolling()
+    {
+        if (closing) return;
+        poll.Stop(); poll.Start();
+        // The network may need a moment after waking; the first refresh simply retries on the next tick if it fails.
+        _ = Refresh();
+    }
     protected override void ExitThreadCore()
     {
+        Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         closing = true; stop.Cancel(); poll.Dispose(); hoverClose.Dispose(); updateTimer.Dispose();
         showWait.Unregister(null); showSignal.Dispose();
         tray.Visible = false; agyTray.Visible = false;

@@ -24,7 +24,7 @@ Windows 11の通知領域に、AIサービスの利用枠の残り割合を2行�
 
 | サービス | 準備するもの |
 | --- | --- |
-| Codex | Codexデスクトップアプリ、または[Codex CLI](https://github.com/openai/codex)をインストールしてログインします。ローカルに`codex.exe`が必要です。 |
+| Codex | Codexデスクトップアプリ、または[Codex CLI](https://github.com/openai/codex)（npm版も可）をインストールしてログインします。 |
 | Antigravity | [Antigravity CLI（agy）](https://antigravity.google/docs/cli-install)をインストールしてログインします。下記の制限もご確認ください。 |
 | Claude | [Claude Code CLI](https://code.claude.com/docs/en/setup)をインストールし、`claude auth login`でログインします。Claude DesktopやWeb版で使っているアカウントも、同じアカウントでCLIにログインすれば残量を表示できます。 |
 | Grok | [公式Grok Build CLI](https://docs.x.ai/build/cli/reference)をインストールし、`grok login`でログインします。対象はCLIの週次利用枠です。 |
@@ -70,7 +70,7 @@ Windowsの「設定」→「個人用設定」→「タスクバー」→「そ�
 
 CodexとClaudeで5時間枠と週間枠がある場合は、「20%(80%)」のように表示します。先頭は5時間枠、括弧内は週間枠の残量です。「その他」→「残量の表示順」で「週間（5時間）の順」に切り替えられます。
 
-残量は通常1分ごとに更新されます。問い合わせ制限中は前回の値を表示します。取得できなくなった値はグレーで表示し、まだ取得できていない場合は「—」と表示します。
+残量は通常1分ごとに更新されます（AntigravityとGrokは、CLIを起動して取得するため3分ごと）。画面のロック中とスリープ中は取得を止め、戻ったときにすぐ更新します。問い合わせ制限中は前回の値を表示します。取得できなくなった値はグレーで表示し、まだ取得できていない場合は「—」と表示します。
 
 ![Grokを下段に選んだ表示例](docs/grok-taskbar.png)
 

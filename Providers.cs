@@ -10,13 +10,7 @@ internal static class Providers
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timeout.CancelAfter(TimeSpan.FromSeconds(25));
         var ct = timeout.Token;
-        string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenAI", "Codex", "bin");
-        var exe = Directory.Exists(folder) ? Directory.GetFiles(folder, "codex.exe", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
-        bool desktopApp = exe != null;
-        if (exe == null)
-        {
-            exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator).Select(p => Path.Combine(p, "codex.exe")).FirstOrDefault(File.Exists);
-        }
+        var (exe, desktopApp) = FindCodex();
         if (exe == null) throw new InvalidOperationException(L.T("Codexをインストールしてログインしてください"));
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
         psi.ArgumentList.Add("app-server");
@@ -41,10 +35,37 @@ internal static class Providers
             await errors;
         }
     }
+    // The desktop app's bundled codex.exe first, then a codex.exe on PATH, then the native binary behind an npm
+    // install, whose PATH entry is only a codex.cmd script that cannot speak to us over stdio itself.
+    internal static (string? Exe, bool DesktopApp) FindCodex() => FindCodex(
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenAI", "Codex", "bin"),
+        Environment.GetEnvironmentVariable("PATH") ?? "",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm"));
+    internal static (string? Exe, bool DesktopApp) FindCodex(string folder, string pathVariable, string defaultNpm)
+    {
+        var bundled = Directory.Exists(folder) ? Directory.GetFiles(folder, "codex.exe", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
+        if (bundled != null) return (bundled, true);
+        var path = pathVariable.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        var onPath = path.Select(p => Path.Combine(p, "codex.exe")).FirstOrDefault(File.Exists);
+        if (onPath != null) return (onPath, false);
+        var npmFolders = path.Where(p => File.Exists(Path.Combine(p, "codex.cmd")))
+            .Append(defaultNpm);
+        foreach (var npm in npmFolders)
+        {
+            var vendor = Path.Combine(npm, "node_modules", "@openai", "codex", "vendor");
+            if (!Directory.Exists(vendor)) continue;
+            var native = Directory.GetFiles(vendor, "codex.exe", SearchOption.AllDirectories)
+                .OrderByDescending(f => f.Contains("x86_64", StringComparison.OrdinalIgnoreCase) == Environment.Is64BitOperatingSystem).FirstOrDefault();
+            if (native != null) return (native, false);
+        }
+        return (null, false);
+    }
     private static async Task<JsonElement> ReadResult(Process proc, int id, CancellationToken ct)
     {
         while (await proc.StandardOutput.ReadLineAsync(ct) is { } line)
         {
+            // Skip log lines; only JSON-RPC messages are answers.
+            if (!line.TrimStart().StartsWith('{')) continue;
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             if (!root.TryGetProperty("id", out var rid) || !rid.TryGetInt32(out var n) || n != id) continue;
@@ -61,7 +82,9 @@ internal static class Providers
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "agy", "bin", "agy.exe");
-        if (!File.Exists(exe)) throw new IOException(L.T("agyが見つかりません"));
+        if (!File.Exists(exe))
+            exe = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => Path.Combine(p, "agy.exe")).FirstOrDefault(File.Exists) ?? throw new IOException(L.T("agyが見つかりません"));
         Directory.CreateDirectory(Preferences.Folder);
         var psi = new ProcessStartInfo(exe)
         {

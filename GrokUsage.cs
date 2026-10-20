@@ -29,7 +29,11 @@ internal static class GrokUsage
         var stderr = proc.StandardError.ReadToEndAsync();
         try
         {
-            await proc.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{},"clientInfo":{"name":"CodexLimitViewer","version":"0.1.18"}}}""");
+            await proc.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                jsonrpc = "2.0", id = 1, method = "initialize",
+                @params = new { protocolVersion = 1, clientCapabilities = new { }, clientInfo = new { name = "CodexLimitViewer", version = UpdateCheck.Current.ToString(3) } }
+            }));
             // The CLI loads its sign-in in the background for a second or two after starting, and billing answers
             // "invalid or expired credentials" until then, so ask again in the same process before giving up.
             for (int attempt = 0; ; attempt++)
