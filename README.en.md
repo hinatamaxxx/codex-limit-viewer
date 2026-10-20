@@ -13,7 +13,7 @@ See your remaining AI quota in two rows in the Windows 11 system tray. Choose tw
 - Check your remaining quota from the taskbar while you work.
 - Click to see quota by service, reset times, and the last fetch time.
 - Optionally open details on hover; this is off by default.
-- Choose services and switch between Japanese and English from the right-click menu.
+- Choose the displayed services by dragging cards in “Usage”; switch between Japanese and English from the right-click menu.
 - Optionally start the app when you sign in to Windows; this is off by default.
 
 ![Quota details](docs/preview-en.png)
@@ -62,14 +62,13 @@ In Windows **Settings → Personalization → Taskbar → Other system tray icon
 
 | Action | Result |
 | --- | --- |
-| Left-click | Open details. Click again or outside the popup to close it. |
-| Right-click | Choose displayed services or refresh now. Hover behavior, startup and language are under “More”. “Exit” asks for confirmation before stopping the app. |
-| “Taskbar display” → “Top row / Bottom row” | Choose a service. Selecting the service already in the other row swaps the rows. |
+| Left-click | Open “Usage”. Click again or outside the popup to close it. |
+| Right-click | The menu starts with your current quota. Besides “Open usage” and “Refresh now”, value order, hover behavior, startup and language are under “More”. “Exit” asks for confirmation before stopping the app. |
 | Enable “Open details on hover” | Hover over the quota display to open details. Move the pointer outside both the display and popup to close it. |
 
-Details list your taskbar services first. Other services are folded at the bottom; click a heading to open its contents.
+“Usage” shows each service with remaining-quota bars. Drag and drop cards to reorder them: **the first card is the taskbar’s top row and the second its bottom row** (tagged “Top” and “Bottom”). Cards from the third on fold to one line; click one to open it. The order is saved.
 
-For Codex and Claude plans with both 5-hour and weekly quotas, a value such as “20%(80%)” shows 5-hour remaining first and weekly remaining in parentheses. Choose “Weekly (5-hour) order” under “Taskbar display” to reverse the order.
+For Codex and Claude plans with both 5-hour and weekly quotas, a value such as “20%(80%)” shows 5-hour remaining first and weekly remaining in parentheses. Choose “More” → “Value order” → “Weekly (5-hour) order” to reverse the order.
 
 Quota normally refreshes every minute. During rate limits, the app keeps the last values. Previously fetched values turn gray if fetching fails; “—” means no value has been fetched yet.
 

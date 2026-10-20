@@ -25,11 +25,13 @@ internal static class Verification
             Check(DetailsForm.FormatReset(noon.AddHours(6).AddMilliseconds(-100), noon) == "今日 18:00 にリセット（あと6時間0分）", "Reset a moment before the hour shows the hour", results);
             Check(DetailsForm.FormatReset(noon.AddSeconds(20), noon) == "今日 12:00 にリセット（あと1分）", "Under a minute never shows zero", results);
             Check(DetailsForm.FormatReset(null, noon) == "リセット時刻不明" && DetailsForm.FormatReset(noon, noon) == "リセット時刻経過 · 更新待ち", "Reset missing and expired", results);
+            Check(DetailsForm.ResetParts(noon.AddDays(6).AddHours(6), noon) == ("リセット 10月3日(土) 18:00", "あと6日6時間") &&
+                DetailsForm.ResetParts(null, noon) == ("リセット時刻不明", null), "Reset line splits into date and time left", results);
             L.English = true;
             Check(DetailsForm.FormatReset(noon.AddDays(6).AddHours(6), noon) == "Resets Sat, Oct 3 18:00 (in 6d 6h)", "English reset date", results);
             Check(DetailsForm.FormatReset(noon.AddHours(4).AddMinutes(7), noon) == "Resets today 16:07 (in 4h 7m)", "English same-day reset", results);
             Check(L.F("取得 {age}", ("age", "09/22 03:00:00")) == "Fetched 09/22 03:00:00", "English timestamp", results);
-            Check(L.QuotaLabel("週間") == "Weekly" && L.T("パネルを開く") == "Open panel" &&
+            Check(L.QuotaLabel("週間") == "Weekly" && L.T("使用状況を開く") == "Open usage" &&
                 L.T("Codexアプリ経由") == "Via Codex app" &&
                 L.T("Grok CLI経由") == "Via Grok CLI" &&
                 L.T("ホバーで詳細を開く") == "Open details on hover", "English labels", results);
@@ -187,10 +189,8 @@ internal static class Verification
         var anchor = new Rectangle(screen.Right - 420, screen.Bottom - 48, 96, 48);
         menu.Build = () =>
         [
-            new(TooltipText.Title, Enabled: false), new(L.F("{time} に残量を更新しました", ("time", "16:45")), Enabled: false),
-            new(L.F("新しいバージョン {version} をダウンロード", ("version", "1.2.0"))), MenuEntry.Separator,
-            new(L.T("パネルを開く"), Default: true), new(L.T("今すぐ更新")),
-            new(L.T("タスクバー表示"), Children: [new(L.T("上段")), new(L.T("下段"))]),
+            new(TooltipText.Title, Enabled: false), new("Claude 52%(78%) · Codex 100%", Enabled: false), MenuEntry.Separator,
+            new(L.T("使用状況を開く"), Default: true), new(L.T("今すぐ更新")),
             new(L.T("その他"), Children: [new(L.T("ホバーで詳細を開く"), Checked: true)]),
             MenuEntry.Separator, new(L.T("終了")),
         ];

@@ -2,8 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace CodexLimitViewer;
 
+// Radio: one of several exclusive choices, shown with the standard dot instead of a check mark.
 internal sealed record MenuEntry(string Text, Action? Click = null, bool Checked = false, bool Enabled = true, bool Default = false,
-    IReadOnlyList<MenuEntry>? Children = null)
+    IReadOnlyList<MenuEntry>? Children = null, bool Radio = false)
 {
     internal static readonly MenuEntry Separator = new("-");
     internal bool IsSeparator => ReferenceEquals(this, Separator);
@@ -12,11 +13,16 @@ internal sealed record MenuEntry(string Text, Action? Click = null, bool Checked
 // The shell's own popup menu: Windows draws the margins, check marks, scaling and dark mode, like other tray apps.
 internal sealed class TrayMenu : IDisposable
 {
-    private const uint MF_STRING = 0, MF_GRAYED = 1, MF_CHECKED = 8, MF_POPUP = 0x10, MF_SEPARATOR = 0x800;
+    private const uint MIIM_STATE = 1, MIIM_ID = 2, MIIM_SUBMENU = 4, MIIM_FTYPE = 0x100, MIIM_STRING = 0x40;
+    private const uint MFT_SEPARATOR = 0x800, MFT_RADIOCHECK = 0x200, MFS_GRAYED = 3, MFS_CHECKED = 8, MFS_DEFAULT = 0x1000;
     private const uint TPM_RIGHTBUTTON = 2, TPM_BOTTOMALIGN = 0x20, TPM_VERTICAL = 0x40, TPM_NONOTIFY = 0x80, TPM_RETURNCMD = 0x100;
     [DllImport("user32.dll")] private static extern IntPtr CreatePopupMenu();
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool AppendMenu(IntPtr menu, uint flags, IntPtr id, string? text);
-    [DllImport("user32.dll")] private static extern bool SetMenuDefaultItem(IntPtr menu, uint id, uint byPosition);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool InsertMenuItem(IntPtr menu, uint item, bool byPosition, ref ItemInfo info);
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] private struct ItemInfo
+    {
+        public int Size; public uint Mask, Type, State, Id; public IntPtr SubMenu, CheckedBitmap, UncheckedBitmap, Data;
+        public string? Text; public uint TextLength; public IntPtr Bitmap;
+    }
     [DllImport("user32.dll")] private static extern bool DestroyMenu(IntPtr menu);
     [DllImport("user32.dll")] private static extern int TrackPopupMenuEx(IntPtr menu, uint flags, int x, int y, IntPtr window, ref TrackParams parameters);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
@@ -70,22 +76,31 @@ internal sealed class TrayMenu : IDisposable
 
     private static void Append(IntPtr menu, IReadOnlyList<MenuEntry> entries, Dictionary<int, Action> actions)
     {
+        uint position = 0;
         foreach (var entry in entries)
         {
-            if (entry.IsSeparator) { AppendMenu(menu, MF_SEPARATOR, IntPtr.Zero, null); continue; }
-            uint flags = (entry.Checked ? MF_CHECKED : 0) | (entry.Enabled ? 0 : MF_GRAYED);
-            string text = entry.Text.Replace("&", "&&");
-            if (entry.Children is { } children)
+            var info = new ItemInfo { Size = Marshal.SizeOf<ItemInfo>(), Mask = MIIM_FTYPE };
+            if (entry.IsSeparator) info.Type = MFT_SEPARATOR;
+            else
             {
-                var submenu = CreatePopupMenu();
-                Append(submenu, children, actions);
-                AppendMenu(menu, flags | MF_POPUP, submenu, text);
-                continue;
+                info.Mask |= MIIM_STATE | MIIM_STRING;
+                info.Type = entry.Radio ? MFT_RADIOCHECK : 0;
+                info.State = (entry.Checked ? MFS_CHECKED : 0) | (entry.Enabled ? 0 : MFS_GRAYED) | (entry.Default ? MFS_DEFAULT : 0);
+                info.Text = entry.Text.Replace("&", "&&");
+                if (entry.Children is { } children)
+                {
+                    info.Mask |= MIIM_SUBMENU;
+                    info.SubMenu = CreatePopupMenu();
+                    Append(info.SubMenu, children, actions);
+                }
+                else
+                {
+                    info.Mask |= MIIM_ID;
+                    info.Id = (uint)(actions.Count + 1);
+                    actions[actions.Count + 1] = entry.Click ?? (() => { });
+                }
             }
-            int id = actions.Count + 1;
-            actions[id] = entry.Click ?? (() => { });
-            AppendMenu(menu, flags | MF_STRING, id, text);
-            if (entry.Default) SetMenuDefaultItem(menu, (uint)id, 0);
+            InsertMenuItem(menu, position++, true, ref info);
         }
     }
 

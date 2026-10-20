@@ -17,6 +17,8 @@ internal sealed class Preferences
     public string TaskbarBottom { get; set; } = "Antigravity";
     // true: "5-hour%(weekly%)"; false: "weekly%(5-hour%)".
     public bool FiveHourFirst { get; set; } = true;
+    // Card order in the usage popup after the reader dragged cards; empty keeps taskbar services first.
+    public List<string> CardOrder { get; set; } = [];
     public int X { get; set; } = int.MinValue;
     public int Y { get; set; } = 16;
     // Cache and diagnostics; settings themselves live in AppPaths.SettingsDirectory.
