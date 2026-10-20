@@ -2,11 +2,11 @@
 
 # Codex Limit Viewer
 
-[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0) · [日本語](README.md)
+[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0) · [日本語](README.md)
 
 See your remaining AI quota in two rows in the Windows 11 system tray. Choose two services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
 
-![Taskbar display](docs/taskbar.png)
+![Taskbar display](docs/taskbar.jpg)
 
 ## Features
 
@@ -16,7 +16,7 @@ See your remaining AI quota in two rows in the Windows 11 system tray. Choose tw
 - Choose the displayed services by dragging cards in “Usage”; switch between Japanese and English from the right-click menu.
 - Optionally start the app when you sign in to Windows; this is off by default.
 
-![Quota details](docs/preview-en.png)
+![Quota details](docs/preview-en.jpg)
 
 ## Prepare your services
 
@@ -37,17 +37,17 @@ Antigravity quota may be unavailable with some agy versions. With agy 1.2.12, th
 
 Choose this edition for regular use.
 
-1. Download `Codex-Limit-Viewer-v1.1.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.1.0).
+1. Download `Codex-Limit-Viewer-v1.2.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0).
 2. Run the EXE and click “Install.” No administrator privileges are required.
 3. After installation, launch “Codex Limit Viewer” from the Start Menu.
 
-![Setup window](docs/setup-en.png)
+![Setup window](docs/setup-en.jpg)
 
 ### Portable edition
 
 Choose this edition to run the app from an extracted folder without installation.
 
-1. Download and extract `Codex-Limit-Viewer-v1.1.0-portable-win-x64.zip`.
+1. Download and extract `Codex-Limit-Viewer-v1.2.0-portable-win-x64.zip`.
 2. Run `CodexLimitViewer.exe` in the folder.
 
 Keep the `portable` file (`portable.flag` in v1.0.0) in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
@@ -58,7 +58,7 @@ In Windows **Settings → Personalization → Taskbar → Other system tray icon
 
 ## Using the app
 
-![Right-click menu](docs/menu-en.png)
+![Right-click menu](docs/menu-en.jpg)
 
 | Action | Result |
 | --- | --- |
@@ -72,7 +72,7 @@ For Codex and Claude plans with both 5-hour and weekly quotas, a value such as �
 
 Quota normally refreshes every minute (every three minutes for Antigravity and Grok, which start their CLIs to fetch). Fetching pauses while the screen is locked or the PC sleeps and refreshes as soon as you return. During rate limits, the app keeps the last values. Previously fetched values turn gray if fetching fails; “—” means no value has been fetched yet.
 
-![Grok in the bottom row](docs/grok-taskbar.png)
+![Grok in the bottom row](docs/grok-taskbar.jpg)
 
 ## Startup and updates
 
@@ -124,7 +124,7 @@ Disable startup entries created by earlier versions through their settings or Wi
 
 ## Requirements and limitations
 
-- Unofficial, unsigned app for Windows 11 x64. No additional .NET runtime installation is required.
+- Unofficial, unsigned app for Windows 11. It runs on .NET Framework 4.8, which is part of Windows, so nothing else needs installing (the app is about 1.4 MB).
 - Mixed-DPI monitors and startup after a reboot are unverified.
 - Service or CLI changes may prevent quota fetching. Grok support covers the Grok Build CLI weekly quota, not separate per-chat limits on the web.
 - Available under the [MIT License](LICENSE).
