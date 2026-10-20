@@ -134,6 +134,18 @@ internal static class Verification
             var tip = TooltipText.For(TooltipText.Title, TooltipText.Status(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)), TooltipText.UpdateNotice(new Version(1, 2, 0)));
             Check(tip.Length <= TooltipText.Limit && tip.StartsWith("Codex Limit Viewer ") && tip.Split('\n').Length == 3, "Tray tooltip has three short lines", results);
             Check(TooltipText.For("Codex Limit Viewer 1.1.0", new string('a', 30), new string('b', 30)).Split('\n').Length == 2, "Tooltip drops its last line to fit", results);
+            var npmRoot = Path.Combine(Path.GetTempPath(), "clv-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var native = Path.Combine(npmRoot, "node_modules", "@openai", "codex", "vendor", "x86_64-pc-windows-msvc", "codex", "codex.exe");
+                Directory.CreateDirectory(Path.GetDirectoryName(native)!);
+                File.WriteAllText(native, "");
+                File.WriteAllText(Path.Combine(npmRoot, "codex.cmd"), "");
+                var missing = Path.Combine(npmRoot, "none");
+                Check(Providers.FindCodex(missing, npmRoot, missing) == (native, false) && Providers.FindCodex(missing, missing, missing).Exe == null,
+                    "Codex CLI installed with npm is found behind codex.cmd", results);
+            }
+            finally { Directory.Delete(npmRoot, true); }
             results.Add("All tests passed.");
 
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "test-results.txt"), results); return 0;

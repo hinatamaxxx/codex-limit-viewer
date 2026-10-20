@@ -58,7 +58,17 @@ internal static class ClaudeUsageApi
         var token = ReadToken() ?? throw new IOException(L.T("Claude Code CLIでログインしてください"));
         // The CLI only renews its sign-in when it calls the model, so an idle CLI leaves the token expired.
         if (token.Expires <= DateTimeOffset.UtcNow.AddMinutes(5)) token = await Renew(token, stop);
-        using var response = await SendUsage(token.Access, stop);
+        var response = await SendUsage(token.Access, stop);
+        // A sign-in that looks valid can still be refused when the CLI rotated it meanwhile: renew once, then ask again.
+        if (response.StatusCode == HttpStatusCode.Unauthorized && token.Refresh != null)
+        {
+            response.Dispose();
+            var latest = ReadToken();
+            token = latest is { } fresh && fresh.Access != token.Access && fresh.Expires > DateTimeOffset.UtcNow.AddMinutes(1)
+                ? fresh : await Renew(latest ?? token, stop);
+            response = await SendUsage(token.Access, stop);
+        }
+        using var _ = response;
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
             retryAfter = DateTimeOffset.UtcNow + (response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(2));

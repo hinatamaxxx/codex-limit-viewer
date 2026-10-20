@@ -24,7 +24,7 @@ See your remaining AI quota in two rows in the Windows 11 system tray. Choose tw
 
 | Service | What you need |
 | --- | --- |
-| Codex | Install and sign in to the Codex desktop app or [Codex CLI](https://github.com/openai/codex). A local `codex.exe` is required. |
+| Codex | Install and sign in to the Codex desktop app or [Codex CLI](https://github.com/openai/codex) (npm installs work too). |
 | Antigravity | Install and sign in to [Antigravity CLI (agy)](https://antigravity.google/docs/cli-install). See the limitation below. |
 | Claude | Install [Claude Code CLI](https://code.claude.com/docs/en/setup) and run `claude auth login`. To show quota for your Claude Desktop or web account, sign in to the CLI with the same account. |
 | Grok | Install the [official Grok Build CLI](https://docs.x.ai/build/cli/reference) and run `grok login`. The app displays the CLI's weekly quota. |
@@ -70,7 +70,7 @@ In Windows **Settings → Personalization → Taskbar → Other system tray icon
 
 For Codex and Claude plans with both 5-hour and weekly quotas, a value such as “20%(80%)” shows 5-hour remaining first and weekly remaining in parentheses. Choose “More” → “Value order” → “Weekly (5-hour) order” to reverse the order.
 
-Quota normally refreshes every minute. During rate limits, the app keeps the last values. Previously fetched values turn gray if fetching fails; “—” means no value has been fetched yet.
+Quota normally refreshes every minute (every three minutes for Antigravity and Grok, which start their CLIs to fetch). Fetching pauses while the screen is locked or the PC sleeps and refreshes as soon as you return. During rate limits, the app keeps the last values. Previously fetched values turn gray if fetching fails; “—” means no value has been fetched yet.
 
 ![Grok in the bottom row](docs/grok-taskbar.png)
 
