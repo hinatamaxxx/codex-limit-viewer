@@ -1,7 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 // The usage popup. Everything is painted on one surface from a layout in 96-DPI units scaled by the system DPI,
 // so text and boxes grow together at any display scale. Cards can be reordered by dragging.
@@ -50,7 +50,7 @@ internal sealed class DetailsForm : Form
         AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
-        Text = "Codex Limit Viewer";
+        Text = "Usage Limit Viewer";
         AccessibleName = L.T("使用状況");
         BackColor = Surface;
         ForeColor = Ink;
@@ -66,9 +66,9 @@ internal sealed class DetailsForm : Form
         Deactivate += (_, _) => { if (!prefs.Pinned && dragging == null) CloseDetails(); };
     }
 
-    private int S(float value) => (int)Math.Round(value * CodexLimitViewer.Compat.SystemDpi / 96f);
+    private int S(float value) => (int)Math.Round(value * UsageLimitViewer.Compat.SystemDpi / 96f);
     private Font UiFont(float size, bool semibold = false) =>
-        new(semibold ? "Segoe UI Semibold" : "Segoe UI", size * CodexLimitViewer.Compat.SystemDpi / 96f, FontStyle.Regular, GraphicsUnit.Pixel);
+        new(semibold ? "Segoe UI Semibold" : "Segoe UI", size * UsageLimitViewer.Compat.SystemDpi / 96f, FontStyle.Regular, GraphicsUnit.Pixel);
     private static readonly string IconFamily = FontFamily.Families.Any(f => f.Name == "Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets";
 
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
@@ -123,12 +123,12 @@ internal sealed class DetailsForm : Form
     private void FadeTo(double targetOpacity)
     {
         if (fade.Enabled && fadeTo == targetOpacity) return;
-        fadeFrom = Opacity; fadeTo = targetOpacity; fadeStarted = CodexLimitViewer.Compat.TickCount64;
+        fadeFrom = Opacity; fadeTo = targetOpacity; fadeStarted = UsageLimitViewer.Compat.TickCount64;
         fade.Start();
     }
     private void AdvanceFade()
     {
-        double progress = CodexLimitViewer.Compat.Clamp((CodexLimitViewer.Compat.TickCount64 - fadeStarted) / (double)FadeDurationMs, 0, 1);
+        double progress = UsageLimitViewer.Compat.Clamp((UsageLimitViewer.Compat.TickCount64 - fadeStarted) / (double)FadeDurationMs, 0, 1);
         Opacity = fadeFrom + (fadeTo - fadeFrom) * progress * progress * (3 - 2 * progress);
         if (progress < 1) return;
         fade.Stop();
@@ -180,11 +180,11 @@ internal sealed class DetailsForm : Form
         int baseline = cards.Sum(c => c.Foldable ? S(FoldedHeight) : c.Height) + Math.Max(0, cards.Count - 1) * S(Gap);
         var area = Screen.FromRectangle(Bounds).WorkingArea;
         int maxList = Math.Min(S(MaxListHeight), area.Height - S(HeaderHeight) - S(Pad) - S(24));
-        listHeight = CodexLimitViewer.Compat.Clamp(baseline, S(80), Math.Max(S(80), maxList));
+        listHeight = UsageLimitViewer.Compat.Clamp(baseline, S(80), Math.Max(S(80), maxList));
         ClientSize = new Size(S(LogicalWidth), S(HeaderHeight) + listHeight + S(Pad));
         ClampScroll();
     }
-    private void ClampScroll() => scroll = CodexLimitViewer.Compat.Clamp(scroll, 0, Math.Max(0, contentHeight - listHeight));
+    private void ClampScroll() => scroll = UsageLimitViewer.Compat.Clamp(scroll, 0, Math.Max(0, contentHeight - listHeight));
     private Rectangle ListBounds => new(S(Pad), S(HeaderHeight), ClientSize.Width - 2 * S(Pad), listHeight);
 
     // Header buttons, right to left: close, refresh, pin.
@@ -227,7 +227,7 @@ internal sealed class DetailsForm : Form
                     TextRenderer.DrawText(g, L.T("更新中…"), small, new Rectangle(S(Pad + CardPad + 6) + TextRenderer.MeasureText(g, L.T("使用状況"), title, Size.Empty, TextFormatFlags.NoPadding).Width, S(2), S(80), S(HeaderHeight)),
                         Faint, TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }
-        using (var glyphs = new Font(IconFamily, 12 * CodexLimitViewer.Compat.SystemDpi / 96f, GraphicsUnit.Pixel))
+        using (var glyphs = new Font(IconFamily, 12 * UsageLimitViewer.Compat.SystemDpi / 96f, GraphicsUnit.Pixel))
             foreach (var b in Buttons())
             {
                 if (hoverButton == b.Id)
@@ -299,7 +299,7 @@ internal sealed class DetailsForm : Form
                 for (int row = 0; row < 3; row++)
                     for (int col = 0; col < 2; col++)
                         g.FillEllipse(dots, r.Left + S(3) + col * S(3.5f), y + S(5) + row * S(4), S(2), S(2));
-        using var glyphs = new Font(IconFamily, 9 * CodexLimitViewer.Compat.SystemDpi / 96f, GraphicsUnit.Pixel);
+        using var glyphs = new Font(IconFamily, 9 * UsageLimitViewer.Compat.SystemDpi / 96f, GraphicsUnit.Pixel);
         if (card.Foldable)
         {
             TextRenderer.DrawText(g, card.Folded ? "" : "", glyphs, new Rectangle(x, y, S(12), S(TitleHeight)), Muted,
@@ -356,7 +356,7 @@ internal sealed class DetailsForm : Form
             using (var trackBrush = new SolidBrush(Track))
             using (var trackPath = Rounded(barBounds, S(1.5f)))
                 g.FillPath(trackBrush, trackPath);
-            int filled = (int)Math.Round(width * CodexLimitViewer.Compat.Clamp(quota.Remaining, 0, 100) / 100);
+            int filled = (int)Math.Round(width * UsageLimitViewer.Compat.Clamp(quota.Remaining, 0, 100) / 100);
             if (filled > 0)
                 using (var barBrush = new SolidBrush(reading.Stale ? Faint : LevelColor(quota.Remaining)))
                 using (var barPath = Rounded(new Rectangle(x, barBounds.Y, Math.Max(filled, S(3)), barBounds.Height), S(1.5f)))
@@ -490,7 +490,7 @@ internal sealed class DetailsForm : Form
     {
         if (dragging == null) return;
         var list = ListBounds;
-        dragY = CodexLimitViewer.Compat.Clamp(p.Y - dragOffset, list.Top - dragging.Height / 2, list.Bottom - dragging.Height / 2);
+        dragY = UsageLimitViewer.Compat.Clamp(p.Y - dragOffset, list.Top - dragging.Height / 2, list.Bottom - dragging.Height / 2);
         // Drop slot: before the first remaining card whose middle lies below the dragged card's middle.
         int middle = dragY - list.Top + scroll + dragging.Height / 2, y = 0, index = 0;
         foreach (var c in cards.Where(c => c != dragging))
@@ -518,7 +518,7 @@ internal sealed class DetailsForm : Form
     {
         var card = dragging!;
         var order = cards.Where(c => c != card).Select(c => c.Reading.Provider).ToList();
-        order.Insert(CodexLimitViewer.Compat.Clamp(dropIndex, 0, order.Count), card.Reading.Provider);
+        order.Insert(UsageLimitViewer.Compat.Clamp(dropIndex, 0, order.Count), card.Reading.Provider);
         // Keep services that are not shown right now (for example Grok without its CLI) in their saved place at the end.
         foreach (var provider in prefs.CardOrder ?? []) if (!order.Contains(provider)) order.Add(provider);
         prefs.CardOrder = order;

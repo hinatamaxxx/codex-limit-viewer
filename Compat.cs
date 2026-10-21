@@ -9,7 +9,7 @@ namespace System.Runtime.CompilerServices
     [AttributeUsage(AttributeTargets.Method, Inherited = false)] internal sealed class ModuleInitializerAttribute : Attribute { }
 }
 
-namespace CodexLimitViewer
+namespace UsageLimitViewer
 {
     // Loads the library DLLs embedded in the exe (System.Text.Json and its helpers) the first time they are needed.
     internal static class EmbeddedAssemblies

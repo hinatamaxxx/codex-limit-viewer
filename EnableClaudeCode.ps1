@@ -1,6 +1,6 @@
 param(
     [string]$SettingsPath = (Join-Path $env:USERPROFILE '.claude/settings.json'),
-    [string]$BridgePath = (Join-Path $env:LOCALAPPDATA 'CodexLimitViewer/ClaudeCodeStatusLine.ps1')
+    [string]$BridgePath = (Join-Path $env:LOCALAPPDATA 'UsageLimitViewer/ClaudeCodeStatusLine.ps1')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +29,6 @@ $null = $updated | ConvertFrom-Json
 $bridgeFolder = [System.IO.Path]::GetDirectoryName($BridgePath)
 [System.IO.Directory]::CreateDirectory($bridgeFolder) | Out-Null
 Copy-Item -LiteralPath $source -Destination $BridgePath -Force
-if (Test-Path -LiteralPath $SettingsPath) { Copy-Item -LiteralPath $SettingsPath -Destination "$SettingsPath.codex-limit-viewer.bak" -Force }
+if (Test-Path -LiteralPath $SettingsPath) { Copy-Item -LiteralPath $SettingsPath -Destination "$SettingsPath.usage-limit-viewer.bak" -Force }
 [System.IO.File]::WriteAllText($SettingsPath, $updated, [System.Text.UTF8Encoding]::new($false))
-Write-Output 'Claude Code status line connected to Codex Limit Viewer. Quota data appears after a Claude Code response.'
+Write-Output 'Claude Code status line connected to Usage Limit Viewer. Quota data appears after a Claude Code response.'

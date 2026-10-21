@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class GrokUsage
 {
@@ -31,7 +31,7 @@ internal static class GrokUsage
             await proc.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
             {
                 jsonrpc = "2.0", id = 1, method = "initialize",
-                @params = new { protocolVersion = 1, clientCapabilities = new { }, clientInfo = new { name = "CodexLimitViewer", version = UpdateCheck.Current.ToString(3) } }
+                @params = new { protocolVersion = 1, clientCapabilities = new { }, clientInfo = new { name = "UsageLimitViewer", version = Updater.Current.ToString(3) } }
             }));
             // The CLI loads its sign-in in the background for a second or two after starting, and billing answers
             // "invalid or expired credentials" until then, so ask again in the same process before giving up.
@@ -87,14 +87,14 @@ internal static class GrokUsage
     {
         if (!result.TryGetProperty("config", out var config) || config.ValueKind != JsonValueKind.Object ||
             !config.TryGetProperty("creditUsagePercent", out var usage) || !usage.TryGetDouble(out var used) ||
-            !CodexLimitViewer.Compat.IsFinite(used) || used < 0 ||
+            !UsageLimitViewer.Compat.IsFinite(used) || used < 0 ||
             !config.TryGetProperty("currentPeriod", out var period) || period.ValueKind != JsonValueKind.Object ||
             !period.TryGetProperty("type", out var type) || type.GetString() != "USAGE_PERIOD_TYPE_WEEKLY" ||
             !period.TryGetProperty("end", out var end) || end.ValueKind != JsonValueKind.String ||
             !DateTimeOffset.TryParse(end.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var reset) ||
             reset <= captured)
             throw new IOException(L.T("Grokの週次残量は利用できません"));
-        return new Reading("Grok", [new Quota("週間", CodexLimitViewer.Compat.Clamp(100 - used, 0, 100), reset)], captured,
+        return new Reading("Grok", [new Quota("週間", UsageLimitViewer.Compat.Clamp(100 - used, 0, 100), reset)], captured,
             Source: L.T("Grok CLI経由"));
     }
 }

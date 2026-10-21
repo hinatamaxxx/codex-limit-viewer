@@ -13,7 +13,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>false</GenerateBindingRedirectsOutputType>
-    <AssemblyName>CodexLimitViewer</AssemblyName><Product>Codex Limit Viewer</Product><Title>Codex Limit Viewer</Title><AssemblyTitle>Codex Limit Viewer</AssemblyTitle><IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion><Version>1.2.0</Version><Description>Codex Limit Viewer</Description><Company>hinatamaxxx</Company><Authors>hinatamaxxx</Authors><Copyright>Copyright (c) hinatamaxxx</Copyright>
+    <AssemblyName>UsageLimitViewer</AssemblyName><Product>Usage Limit Viewer</Product><Title>Usage Limit Viewer</Title><AssemblyTitle>Usage Limit Viewer</AssemblyTitle><IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion><Version>2.0.0</Version><Description>Usage Limit Viewer</Description><Company>hinatamaxxx</Company><Authors>hinatamaxxx</Authors><Copyright>Copyright (c) hinatamaxxx</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -25,11 +25,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="installer/bin/**;installer/obj/**" />
-    <EmbeddedResource Include="English.json" LogicalName="CodexLimitViewer.English.json" />
-    <EmbeddedResource Include="ClaudeCodeStatusLine.ps1" LogicalName="CodexLimitViewer.ClaudeCodeStatusLine.ps1" />
-    <EmbeddedResource Include="app.ico" LogicalName="CodexLimitViewerSetup.App.ico" />
+    <EmbeddedResource Include="English.json" LogicalName="UsageLimitViewer.English.json" />
+    <EmbeddedResource Include="ClaudeCodeStatusLine.ps1" LogicalName="UsageLimitViewer.ClaudeCodeStatusLine.ps1" />
+    <EmbeddedResource Include="app.ico" LogicalName="UsageLimitViewerSetup.App.ico" />
     <!-- Documents and scripts the setup installs beside the exe; made by tools/BuildRelease.ps1. -->
-    <EmbeddedResource Include="installer/payload.zip" LogicalName="CodexLimitViewerSetup.Payload.zip" Condition="Exists('installer/payload.zip')" />
+    <EmbeddedResource Include="installer/payload.zip" LogicalName="UsageLimitViewerSetup.Payload.zip" Condition="Exists('installer/payload.zip')" />
   </ItemGroup>
   <!-- Keep one exe: library DLLs from NuGet are embedded and loaded by EmbeddedAssemblies instead of being copied beside it. -->
   <Target Name="EmbedLibraries" AfterTargets="ResolveAssemblyReferences">

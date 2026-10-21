@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 // Reads the account-wide Claude quota with the Claude Code CLI sign-in, so it also reflects Claude Desktop usage.
 // The token is only sent to api.anthropic.com and is never stored or logged by this app.
@@ -89,7 +89,7 @@ internal static class ClaudeUsageApi
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/api/oauth/usage");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
         request.Headers.Add("anthropic-beta", "oauth-2025-04-20");
-        request.Headers.UserAgent.ParseAdd("CodexLimitViewer/" + typeof(ClaudeUsageApi).Assembly.GetName().Version?.ToString(3));
+        request.Headers.UserAgent.ParseAdd("UsageLimitViewer/" + typeof(ClaudeUsageApi).Assembly.GetName().Version?.ToString(3));
         return await Http.SendAsync(request, stop);
     }
 
@@ -137,9 +137,9 @@ internal static class ClaudeUsageApi
         var json = File.ReadAllText(CredentialsPath);
         if (ParseToken(json) is { } current && current.Refresh != token.Refresh && current.Expires > now.AddMinutes(1)) return current;
         var updated = ApplyRenewal(json, doc.RootElement, now);
-        var temp = CredentialsPath + ".codex-limit-viewer.tmp";
+        var temp = CredentialsPath + ".usage-limit-viewer.tmp";
         File.WriteAllText(temp, updated, new System.Text.UTF8Encoding(false));
-        CodexLimitViewer.Compat.MoveOver(temp, CredentialsPath);
+        UsageLimitViewer.Compat.MoveOver(temp, CredentialsPath);
         return ParseToken(updated) ?? throw new IOException(L.T("Claude Code CLIで再ログインしてください"));
     }
 
@@ -182,7 +182,7 @@ internal static class ClaudeUsageApi
     {
         if (!root.TryGetProperty(key, out var window) || window.ValueKind != JsonValueKind.Object ||
             !window.TryGetProperty("utilization", out var used) || !used.TryGetDouble(out var percent) ||
-            !CodexLimitViewer.Compat.IsFinite(percent) || percent < 0) return;
+            !UsageLimitViewer.Compat.IsFinite(percent) || percent < 0) return;
         DateTimeOffset? reset = null;
         if (window.TryGetProperty("resets_at", out var r) && r.ValueKind == JsonValueKind.String &&
             DateTimeOffset.TryParse(r.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
@@ -192,6 +192,6 @@ internal static class ClaudeUsageApi
         }
         // Model-specific weekly windows without a reset time are placeholders for unused models, not real limits.
         if (reset == null && key.StartsWith("seven_day_")) return;
-        rows.Add(new(label, CodexLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
+        rows.Add(new(label, UsageLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
     }
 }

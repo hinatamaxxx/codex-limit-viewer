@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class Verification
 {
@@ -82,7 +82,7 @@ internal static class Verification
             Check(compact.Y + 54 == expanded.Y + 610 && compact.Y + 54 < anchor.Top, "Tray anchored expansion", results);
             Check(TrayPresentation.Above(new Rectangle(1900, 1045, 24, 24), new Size(460, 610), area).X == 1460, "Right edge containment", results);
             Check(TrayPresentation.Above(new Rectangle(500, 0, 24, 24), new Size(460, 610), new Rectangle(0, 40, 1920, 1040)).Y >= 40, "Top taskbar containment", results);
-            Check(ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"powershell -File \"C:\\Users\\a\\AppData\\Local\\CodexLimitViewer\\ClaudeCodeStatusLine.ps1\""}}""") &&
+            Check(ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"powershell -File \"C:\\Users\\a\\AppData\\Local\\UsageLimitViewer\\ClaudeCodeStatusLine.ps1\""}}""") &&
                 !ClaudeCodeUsage.IsBridgeCommand("""{"statusLine":{"type":"command","command":"other.ps1"}}""") &&
                 !ClaudeCodeUsage.IsBridgeCommand("not json"), "Claude Code bridge command is recognized", results);
             Check(ClaudeCodeUsage.Waiting.Quotas.Count == 0 && ClaudeCodeUsage.Waiting.Compact == "—",
@@ -128,12 +128,12 @@ internal static class Verification
             Check(StartupShortcut.IsApprovedByWindows(null) && StartupShortcut.IsApprovedByWindows([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) &&
                 StartupShortcut.IsApprovedByWindows([6]) && !StartupShortcut.IsApprovedByWindows([3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) &&
                 !StartupShortcut.IsApprovedByWindows([1]), "Windows startup switch is read from StartupApproved", results);
-            Check(UpdateCheck.Newer("v1.2.0", new Version(1, 1, 0)) == new Version(1, 2, 0) && UpdateCheck.Newer("v1.1.0", new Version(1, 1, 0)) == null &&
-                UpdateCheck.Newer("1.0.9", new Version(1, 1, 0)) == null && UpdateCheck.Newer("nightly", new Version(1, 1, 0)) == null,
+            Check(Updater.Newer("v1.2.0", new Version(1, 1, 0)) == new Version(1, 2, 0) && Updater.Newer("v1.1.0", new Version(1, 1, 0)) == null &&
+                Updater.Newer("1.0.9", new Version(1, 1, 0)) == null && Updater.Newer("nightly", new Version(1, 1, 0)) == null,
                 "Only a newer release tag is offered as an update", results);
-            var tip = TooltipText.For(TooltipText.Title, TooltipText.Status(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)), TooltipText.UpdateNotice(new Version(1, 2, 0)));
-            Check(tip.Length <= TooltipText.Limit && tip.StartsWith("Codex Limit Viewer ") && tip.Split('\n').Length == 3, "Tray tooltip has three short lines", results);
-            Check(TooltipText.For("Codex Limit Viewer 1.1.0", new string('a', 30), new string('b', 30)).Split('\n').Length == 2, "Tooltip drops its last line to fit", results);
+            var tip = TooltipText.For(TooltipText.Title, TooltipText.Status(new Reading("Codex", [new("5時間", 41, null), new("週間", 71, null)], DateTimeOffset.UtcNow)), L.T("クリックで詳細"));
+            Check(tip.Length <= TooltipText.Limit && tip.StartsWith("Usage Limit Viewer ") && tip.Split('\n').Length == 3, "Tray tooltip has three short lines", results);
+            Check(TooltipText.For("Usage Limit Viewer 1.1.0", new string('a', 30), new string('b', 30)).Split('\n').Length == 2, "Tooltip drops its last line to fit", results);
             var npmRoot = Path.Combine(Path.GetTempPath(), "clv-test-" + Guid.NewGuid().ToString("N"));
             try
             {
@@ -183,7 +183,7 @@ internal static class Verification
             selectedGrok.Save(Path.Combine(AppContext.BaseDirectory, "preview-grok-taskbar.png"));
         f.Hide();
         RenderMenu(Path.Combine(AppContext.BaseDirectory, "preview-menu.png"));
-        using (var exit = new ExitDialog())
+        using (var exit = new AppDialog(L.T("Usage Limit Viewer を終了しますか？"), L.T("終了すると、タスクバーの残量表示と定期的な更新が止まります。"), primary: L.T("終了する"), cancel: L.T("キャンセル")))
         {
             exit.Show(); exit.Refresh(); Application.DoEvents(); Thread.Sleep(300); Application.DoEvents();
             using var shot = new Bitmap(exit.Width, exit.Height);
@@ -202,9 +202,10 @@ internal static class Verification
         menu.Build = () =>
         [
             new(TooltipText.Title, Enabled: false), new("Claude 52%(78%) · Codex 100%", Enabled: false), MenuEntry.Separator,
-            new(L.T("使用状況を開く"), Default: true), new(L.T("今すぐ更新")),
+            new(L.T("使用状況を開く"), Default: true), new(L.T("残量を今すぐ取得")),
             new(L.T("その他"), Children: [new(L.T("ホバーで詳細を開く"), Checked: true)]),
-            MenuEntry.Separator, new(L.T("終了")),
+            new(L.T("アップデート"), Children: [new(L.T("今すぐ確認して更新"))]),
+            MenuEntry.Separator, new(L.T("アプリを終了する")),
         ];
         using var timer = new System.Windows.Forms.Timer { Interval = 700 };
         timer.Tick += (_, _) =>

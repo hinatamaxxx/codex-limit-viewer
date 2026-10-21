@@ -1,8 +1,8 @@
-using CodexLimitViewer;
+using UsageLimitViewer;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace CodexLimitViewerSetup;
+namespace UsageLimitViewerSetup;
 
 // Uninstalling removes settings and cache by default; --keep-settings keeps them (--remove-data is accepted from v1.0).
 internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bool? Startup, bool? Desktop, bool KeepData, bool English)
@@ -24,7 +24,7 @@ internal static class SetupProgram
 {
     internal static bool Requested(string[] args) =>
         args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase) || a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
-        Path.GetFileNameWithoutExtension(CodexLimitViewer.Compat.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
+        Path.GetFileNameWithoutExtension(UsageLimitViewer.Compat.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
 
     [DllImport("dwmapi.dll")] private static extern int DwmFlush();
     internal static int Run(string[] args)
@@ -32,7 +32,7 @@ internal static class SetupProgram
         args = args.Where(a => !a.Equals("--setup", StringComparison.OrdinalIgnoreCase)).ToArray();
         SetupOptions options;
         try { options = SetupOptions.Parse(args); }
-        catch (Exception e) { MessageBox.Show(e.Message, "Codex Limit Viewer Setup"); return 1; }
+        catch (Exception e) { MessageBox.Show(e.Message, "Usage Limit Viewer Setup"); return 1; }
 
         int previewArgument = Array.FindIndex(args, a => a.Equals("--render-preview", StringComparison.OrdinalIgnoreCase));
         int captureArgument = Array.FindIndex(args, a => a.Equals("--capture-preview", StringComparison.OrdinalIgnoreCase));
@@ -85,8 +85,10 @@ internal static class SetupProgram
             catch (Exception e) { Report(e, options); return 1; }
         }
 
-        // A running executable cannot replace its own installed file. Continue from a disposable copy instead.
-        if (!options.Uninstall && InstallerService.IsInsideInstallFolder(CodexLimitViewer.Compat.ProcessPath!))
+        // A running executable cannot replace or delete its own installed file. Continue from a disposable copy instead,
+        // so an uninstall can show its progress and the finished screen while the install folder goes away.
+        // A silent uninstall from Installed apps still runs here and leaves the folder to a helper after it exits.
+        if (InstallerService.IsInsideInstallFolder(UsageLimitViewer.Compat.ProcessPath!) && !(options.Uninstall && options.Silent))
         {
             if (options.Silent)
             {
@@ -95,10 +97,10 @@ internal static class SetupProgram
             }
             try
             {
-                var temporary = Path.Combine(Path.GetTempPath(), "CodexLimitViewerSetup-" + Guid.NewGuid().ToString("N"));
+                var temporary = Path.Combine(Path.GetTempPath(), "UsageLimitViewerSetup-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(temporary);
-                var copy = Path.Combine(temporary, "CodexLimitViewerSetup.exe");
-                File.Copy(CodexLimitViewer.Compat.ProcessPath!, copy);
+                var copy = Path.Combine(temporary, "UsageLimitViewerSetup.exe");
+                File.Copy(UsageLimitViewer.Compat.ProcessPath!, copy);
                 var start = new ProcessStartInfo(copy) { UseShellExecute = true, WorkingDirectory = temporary };
                 start.SetArguments(args);
                 _ = Process.Start(start) ?? throw new IOException("Unable to start the setup copy.");
@@ -107,13 +109,13 @@ internal static class SetupProgram
             catch (Exception e) { Report(e, options); return 1; }
         }
 
-        using var mutex = new Mutex(false, "Local\\CodexLimitViewerSetup");
+        using var mutex = new Mutex(false, "Local\\UsageLimitViewerSetup");
         bool owns;
         try { owns = mutex.WaitOne(0); }
         catch (AbandonedMutexException) { owns = true; }
         if (!owns)
         {
-            if (!options.Silent) MessageBox.Show(options.English ? "Another setup is already running." : "ほかのセットアップが実行中です。", "Codex Limit Viewer Setup");
+            if (!options.Silent) MessageBox.Show(options.English ? "Another setup is already running." : "ほかのセットアップが実行中です。", "Usage Limit Viewer Setup");
             return 2;
         }
         try
@@ -121,7 +123,7 @@ internal static class SetupProgram
             if (options.Silent)
             {
                 if (options.Uninstall) InstallerService.Uninstall(options.KeepData);
-                else InstallerService.Install(options.Startup ?? InstallerService.StartupEnabled, options.Desktop ?? InstallerService.DesktopEnabled, options.Launch);
+                else InstallerService.Install(options.Startup ?? InstallerService.DefaultStartup, options.Desktop ?? InstallerService.DefaultDesktop, options.Launch);
                 return 0;
             }
             ApplicationConfiguration.Initialize();
@@ -139,7 +141,7 @@ internal static class SetupProgram
 
     private static void Report(Exception e, SetupOptions options)
     {
-        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "CodexLimitViewer-Setup.log"), e.ToString()); } catch { }
-        if (!options.Silent) MessageBox.Show(e.Message, "Codex Limit Viewer Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "UsageLimitViewer-Setup.log"), e.ToString()); } catch { }
+        if (!options.Silent) MessageBox.Show(e.Message, "Usage Limit Viewer Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 }

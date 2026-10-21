@@ -1,19 +1,19 @@
 using System.Net.Http;
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class Program
 {
     // Matches the Start menu shortcut, so Windows shows that name and icon for this app's windows and notifications.
-    internal const string AppUserModelId = "hinatamaxxx.CodexLimitViewer";
+    internal const string AppUserModelId = "hinatamaxxx.UsageLimitViewer";
     [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string id);
     [STAThread]
     static int Main(string[] args)
     {
         SetCurrentProcessExplicitAppUserModelID(AppUserModelId);
-        if (CodexLimitViewerSetup.SetupProgram.Requested(args)) return CodexLimitViewerSetup.SetupProgram.Run(args);
+        if (UsageLimitViewerSetup.SetupProgram.Requested(args)) return UsageLimitViewerSetup.SetupProgram.Run(args);
         if (args.Contains("--self-test")) return Verification.Run();
         if (args.Contains("--diagnose"))
         {
@@ -37,10 +37,16 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         if (args.Contains("--render-preview")) return Verification.Render();
         if (args.Contains("--render-live")) return Verification.Render(true);
-        using var mutex = new Mutex(false, "Local\\CodexLimitViewer");
+        if (args.Contains("--install-finished")) return InstallFinished();
+        // After an update the previous copy hands over: wait until it has exited.
+        int waitPid = Array.IndexOf(args, "--wait-pid") is var at && at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out var pid) ? pid : 0;
+        if (waitPid != 0)
+            try { using var previous = System.Diagnostics.Process.GetProcessById(waitPid); previous.WaitForExit(30000); }
+            catch (ArgumentException) { } // Already gone.
+        using var mutex = new Mutex(false, "Local\\UsageLimitViewer");
         bool owns;
-        // After a language switch the previous copy is still closing; wait for it instead of quitting.
-        try { owns = mutex.WaitOne(args.Contains("--restarted") ? 15000 : 0); }
+        // After a language switch or an update the previous copy is still closing; wait for it instead of quitting.
+        try { owns = mutex.WaitOne(args.Contains("--restarted") || waitPid != 0 ? 15000 : 0); }
         catch (AbandonedMutexException) { owns = true; }
         if (!owns)
         {
@@ -52,12 +58,24 @@ internal static class Program
         try
         {
             ClaudeCodeUsage.EnsureBridge();
-            Application.Run(new TrayApplicationContext());
+            Application.Run(new TrayApplicationContext(openPanel: args.Contains("--open")));
         }
         finally { mutex.ReleaseMutex(); }
         return 0;
     }
-    internal const string ShowSignal = "Local\\CodexLimitViewer_Show";
+    internal const string ShowSignal = "Local\\UsageLimitViewer_Show";
+
+    // Shown by the one-line installer when it is done: what was set up, and whether to start the app now.
+    private static int InstallFinished()
+    {
+        using var dialog = new AppDialog(L.T("インストールが完了しました"),
+            L.T("タスクバーの通知領域に、AIサービスの残量が表示されます。スタートメニューの「Usage Limit Viewer」からも開けます。") + "\n\n" +
+            L.T("Windowsにサインインすると自動で起動します。オフにするには、右クリックメニューの「その他」から切り替えてください。"),
+            primary: L.T("完了"), check: L.T("Usage Limit Viewer を起動して、使用状況を開く"));
+        if (dialog.ShowDialog() == DialogResult.OK && dialog.Checked)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Compat.ProcessPath, "--open") { UseShellExecute = false })?.Dispose();
+        return 0;
+    }
 }
 internal sealed class TrayApplicationContext : ApplicationContext
 {
@@ -70,7 +88,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly TrayMenu menu = new();
     private readonly System.Windows.Forms.Timer poll = new() { Interval = 60000 };
     private readonly System.Windows.Forms.Timer hoverClose = new() { Interval = 30 };
-    private readonly System.Windows.Forms.Timer updateTimer = new() { Interval = 6 * 60 * 60 * 1000 };
+    // The first check runs a minute after start, then once an hour decides whether a day has passed.
+    private readonly System.Windows.Forms.Timer updateTimer = new() { Interval = 60 * 1000 };
     private readonly EventWaitHandle showSignal = new(false, EventResetMode.AutoReset, Program.ShowSignal);
     private readonly RegisteredWaitHandle showWait;
     private readonly SynchronizationContext ui;
@@ -82,10 +101,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Reading? claude = ClaudeUsageApi.LoadCache();
     private Reading grok = new("Grok", [], null);
     private Reading shownTop = new("Codex", [], null), shownBottom = new("Antigravity", [], null);
-    private Version? newerVersion;
-    private bool busy, closing, hoverOpened, forceQueued, confirmingExit;
+    private readonly UpdateState updateState = Updater.LoadState();
+    private ReleaseInfo? available;          // A newer release found while automatic updates are off.
+    private string? restartInto;             // The updated exe, started once no window of this app is open.
+    private bool busy, closing, hoverOpened, forceQueued, confirmingExit, updating;
 
-    internal TrayApplicationContext()
+    internal TrayApplicationContext(bool openPanel = false)
     {
         form = new(prefs);
         ClockTextRenderer.FiveHourFirst = prefs.FiveHourFirst;
@@ -94,7 +115,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         widget.OpenDetails += () => { hoverOpened = false; if (form.Visible) form.HideImmediately(); else form.Reveal(true); };
         widget.HoverDetailsEnabled = () => prefs.OpenDetailsOnHover;
         widget.TooltipText = () => TooltipText.For(TooltipText.Title,
-            TooltipText.Status(shownTop) + " · " + TooltipText.Status(shownBottom), TooltipText.UpdateNotice(newerVersion));
+            TooltipText.Status(shownTop) + " · " + TooltipText.Status(shownBottom), UpdateNotice());
         widget.UpdateTooltip();
         widget.HoverDetails += () => { if (!form.Visible) { hoverOpened = true; form.Reveal(true, fromHover: true); } };
         form.VisibleChanged += (_, _) => { if (!form.Visible) hoverOpened = false; };
@@ -116,12 +137,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         form.TaskbarChanged += Apply;
         ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         showWait = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => ui.Post(_ => OpenPanel(), null), null, -1, false);
-        tray.Icon = TrayPresentation.ReservationIcon(); tray.Text = "Codex Limit Viewer"; tray.Visible = true;
+        tray.Icon = TrayPresentation.ReservationIcon(); tray.Text = "Usage Limit Viewer"; tray.Visible = true;
         agyTray.Icon = TrayPresentation.ReservationIcon(); agyTray.Text = "Antigravity"; agyTray.Visible = true;
         int slotNumber = 0;
         foreach (var slot in extraSlots)
         {
-            slot.Icon = (Icon)tray.Icon.Clone(); slot.Text = $"Codex Limit Viewer 表示スペース {++slotNumber}";
+            slot.Icon = (Icon)tray.Icon.Clone(); slot.Text = $"Usage Limit Viewer 表示スペース {++slotNumber}";
             slot.Visible = true;
         }
         foreach (var icon in new[] { tray, agyTray }.Concat(extraSlots))
@@ -137,14 +158,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // Nobody reads the taskbar while the session is locked or asleep: pause polling, and refresh right after return.
         Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
         Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
-        updateTimer.Tick += (_, _) => _ = CheckForUpdate();
+        updateTimer.Tick += (_, _) =>
+        {
+            updateTimer.Interval = 60 * 60 * 1000;
+            if (restartInto != null) { RestartWhenIdle(); return; }
+            if (updateState.LastCheck is not { } last || DateTimeOffset.UtcNow - last > TimeSpan.FromDays(1)) _ = CheckForUpdate(manual: false);
+        };
+        form.VisibleChanged += (_, _) => { if (!form.Visible && restartInto != null) RestartWhenIdle(); };
+        tray.BalloonTipClicked += (_, _) => { if (available != null) _ = CheckForUpdate(manual: true); };
 
         poll.Start();
         hoverClose.Start();
         updateTimer.Start();
         if (prefs.Pinned) { form.PositionAtTray(); form.Show(); }
         _ = Refresh();
-        _ = CheckForUpdate();
+        if (openPanel) OpenPanel();
     }
     private void OpenPanel()
     {
@@ -156,11 +184,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private IReadOnlyList<MenuEntry> BuildMenu()
     {
         var entries = new List<MenuEntry> { new(TooltipText.Title, Enabled: false), new(StatusLine(), Enabled: false) };
-        if (newerVersion is { } version)
-            entries.Add(new(L.F("新しいバージョン {version} をダウンロード", ("version", version.ToString(3))), UpdateCheck.OpenReleasePage));
+        // A new version is announced here only when automatic updates are off; otherwise it just installs itself.
+        if (!prefs.AutoUpdate && available is { } release)
+            entries.Add(new(L.F("このアプリの新しい版 v{version} に更新", ("version", release.Version.ToString(3))), () => _ = CheckForUpdate(manual: true), Enabled: !updating));
         entries.Add(MenuEntry.Separator);
         entries.Add(new(L.T("使用状況を開く"), OpenPanel, Default: true));
-        entries.Add(new(L.T("今すぐ更新"), () => _ = Refresh(force: true), Enabled: !busy));
+        entries.Add(new(L.T("残量を今すぐ取得"), () => _ = Refresh(force: true), Enabled: !busy));
         MenuEntry Order(bool fiveHourFirst, string label) => new(label, () =>
         {
             prefs.FiveHourFirst = fiveHourFirst; prefs.Save();
@@ -177,8 +206,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new("Language / 言語", Children: new[] { ("日本語", "ja"), ("English", "en") }.Select(language =>
                 new MenuEntry(language.Item1, () => SwitchLanguage(language.Item2), Checked: prefs.Language == language.Item2, Radio: true)).ToList()),
         ]));
+        entries.Add(new(L.T("アップデート"), Children:
+        [
+            new(L.T("このアプリ") + " v" + Updater.Current.ToString(3) + UpdateStatus(), Enabled: false),
+            MenuEntry.Separator,
+            new(updating ? L.T("更新しています…") : L.T("今すぐ確認して更新"), () => _ = CheckForUpdate(manual: true), Enabled: !updating),
+            new(L.T("自動で更新する（毎日）"), () => { prefs.AutoUpdate = !prefs.AutoUpdate; prefs.Save(); Apply(); }, Checked: prefs.AutoUpdate),
+        ]));
         entries.Add(MenuEntry.Separator);
-        entries.Add(new(L.T("終了"), ConfirmExit));
+        entries.Add(new(L.T("アプリを終了する"), ConfirmExit));
         return entries;
     }
     // The two taskbar values, so the menu answers "how much is left" even when the taskbar text is hidden.
@@ -192,21 +228,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
             else if (!StartupShortcut.SetEnabled(true))
             {
                 // Windows keeps its own on/off switch for the shortcut; the app never overrides the user's choice there.
-                MessageBox.Show(L.T("Windowsのスタートアップ設定でオフになっています。開いた設定画面で「Codex Limit Viewer」をオンにしてください。"),
-                    "Codex Limit Viewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(L.T("Windowsのスタートアップ設定でオフになっています。開いた設定画面で「Usage Limit Viewer」をオンにしてください。"),
+                    "Usage Limit Viewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 StartupShortcut.OpenWindowsSettings();
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
         {
-            MessageBox.Show(L.T("自動起動の設定を保存できませんでした。"), "Codex Limit Viewer");
+            MessageBox.Show(L.T("自動起動の設定を保存できませんでした。"), "Usage Limit Viewer");
         }
     }
     private void SwitchLanguage(string language)
     {
         if (prefs.Language == language) return;
         prefs.Language = language; prefs.Save();
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CodexLimitViewer.Compat.ProcessPath!, "--restarted") { UseShellExecute = false })?.Dispose(); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(UsageLimitViewer.Compat.ProcessPath!, "--restarted") { UseShellExecute = false })?.Dispose(); }
         catch (Exception) { return; }
         ExitThread();
     }
@@ -216,16 +252,81 @@ internal sealed class TrayApplicationContext : ApplicationContext
         confirmingExit = true;
         try
         {
-            using var dialog = new ExitDialog();
+            using var dialog = new AppDialog(L.T("Usage Limit Viewer を終了しますか？"),
+                L.T("終了すると、タスクバーの残量表示と定期的な更新が止まります。") + "\n\n" +
+                L.T("もう一度使うときは、スタートメニューの「Usage Limit Viewer」から起動してください。自動起動がオンなら、次にサインインしたときにも起動します。"),
+                primary: L.T("終了する"), cancel: L.T("キャンセル"));
             if (dialog.ShowDialog() == DialogResult.OK) ExitThread();
         }
         finally { confirmingExit = false; }
     }
-    private async Task CheckForUpdate()
+    private string UpdateStatus() =>
+        updating ? L.T("（更新しています…）")
+        : available is { } release ? L.F("（v{version} があります）", ("version", release.Version.ToString(3)))
+        : updateState.LastCheck == null ? L.T("（未確認）")
+        : updateState.Failures > 0 ? L.T("（確認できませんでした）") : L.T("（最新です）");
+    private string? UpdateNotice() => !prefs.AutoUpdate && available is { } release
+        ? L.F("このアプリの新しい版 v{version} があります", ("version", release.Version.ToString(3))) : null;
+
+    // manual: the reader chose "check and update now" (or clicked the new-version notice): always install, report the result.
+    // Otherwise automatic: install only when automatic updates are on, and stay quiet unless it fails twice in a row.
+    private async Task CheckForUpdate(bool manual)
     {
-        try { newerVersion = await UpdateCheck.FindNewer(stop.Token); }
-        catch (Exception) { } // Offline or rate-limited: try again at the next check.
-        if (!closing) Apply();
+        if (updating || closing || restartInto != null) return;
+        updating = true;
+        try
+        {
+            var release = await Updater.FindNewer(stop.Token);
+            updateState.LastCheck = DateTimeOffset.UtcNow;
+            updateState.Latest = (release?.Version ?? Updater.Current).ToString(3);
+            if (release == null)
+            {
+                available = null;
+                if (manual) TrayPresentation.Notify(tray, L.T("このアプリは最新です"), "Usage Limit Viewer v" + Updater.Current.ToString(3));
+            }
+            else if (manual || prefs.AutoUpdate)
+            {
+                var exe = await Updater.Install(release, stop.Token);
+                if (manual) TrayPresentation.Notify(tray, L.F("v{version} に更新しました", ("version", release.Version.ToString(3))), L.T("アプリを再起動します。"));
+                available = null;
+                restartInto = exe;
+            }
+            else if (available?.Version != release.Version)
+            {
+                available = release;
+                TrayPresentation.Notify(tray, L.F("このアプリの新しい版 v{version} があります", ("version", release.Version.ToString(3))), L.T("クリックすると更新します。"));
+            }
+            updateState.Failures = 0;
+            updateState.LastError = null;
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !closing)
+        {
+            updateState.LastCheck = DateTimeOffset.UtcNow;
+            updateState.Failures++;
+            updateState.LastError = e.Message;
+            // A single failure is usually the network; tell the reader only when it keeps failing, or when they asked.
+            if (manual || updateState.Failures == 2)
+                TrayPresentation.Notify(tray, L.T("このアプリを更新できませんでした"), e.Message);
+        }
+        finally
+        {
+            updating = false;
+            Updater.SaveState(updateState);
+            if (!closing) Apply();
+            if (restartInto != null) RestartWhenIdle();
+        }
+    }
+    // Restart into the updated exe, but never close a window the reader is using.
+    private void RestartWhenIdle()
+    {
+        if (closing || restartInto == null || form.Visible || confirmingExit || menu.IsOpen) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(restartInto, "--wait-pid " + Compat.ProcessId)
+            { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(restartInto)! })?.Dispose();
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or IOException) { return; }
+        ExitThread();
     }
     // force: a manual refresh, which asks Claude right away instead of waiting out the polling interval.
     private async Task Refresh(bool force = false)
@@ -301,7 +402,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         widget.UpdateReadings(top, bottom);
         form.PositionAtTray();
         shownTop = top; shownBottom = bottom;
-        var extra = TooltipText.UpdateNotice(newerVersion) ?? L.T("クリックで詳細");
+        var extra = UpdateNotice() ?? L.T("クリックで詳細");
         tray.Text = TooltipText.For(TooltipText.Title, TooltipText.Status(top), extra);
         agyTray.Text = TooltipText.For(TooltipText.Title, TooltipText.Status(bottom), extra);
     }

@@ -1,57 +1,60 @@
-using CodexLimitViewer;
+using UsageLimitViewer;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Microsoft.Win32;
 
-namespace CodexLimitViewerSetup;
+namespace UsageLimitViewerSetup;
 
 internal static class InstallerService
 {
-    internal static string InstallFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CodexLimitViewer"));
-    internal static string AppPath => Path.Combine(InstallFolder, "CodexLimitViewer.exe");
-    // v1.0/v1.1 kept a second copy of the setup here; the app exe now uninstalls itself.
-    private static string SetupPath => Path.Combine(InstallFolder, "Setup.exe");
+    internal static string InstallFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "UsageLimitViewer"));
+    internal static string AppPath => Path.Combine(InstallFolder, "UsageLimitViewer.exe");
     // Cache and the Claude Code bridge stay on this machine; settings roam with the user profile.
-    private static string DataFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer"));
-    private static string SettingsFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CodexLimitViewer"));
-    private static string StartMenuLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Codex Limit Viewer.lnk");
-    // v1.0 also placed an uninstall shortcut; uninstalling now happens from Settings → Apps → Installed apps.
-    private static string LegacyUninstallLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Uninstall Codex Limit Viewer.lnk");
-    private static string StartupLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Codex Limit Viewer.lnk");
-    private static string DesktopLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Codex Limit Viewer.lnk");
+    private static string DataFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UsageLimitViewer"));
+    private static string SettingsFolder => Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UsageLimitViewer"));
+    private static string StartMenuLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Usage Limit Viewer.lnk");
+    private static string StartupLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Usage Limit Viewer.lnk");
+    private static string DesktopLink => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Usage Limit Viewer.lnk");
     internal static bool StartupEnabled => File.Exists(StartupLink);
+    internal static bool Installed => File.Exists(AppPath);
     internal static bool DesktopEnabled => File.Exists(DesktopLink);
+
+    // A new install starts with Windows (a tray app is useless when not running); an update keeps the choice.
+    internal static bool DefaultStartup => !Installed || StartupEnabled;
+    internal static bool DefaultDesktop => DesktopEnabled;
 
     internal static bool IsInsideInstallFolder(string path) => Path.GetFullPath(path).StartsWith(InstallFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    internal static void Install(bool startup, bool desktop, bool launch)
+    // step: called with 0..3 as the install moves through its stages, for the progress list.
+    internal static void Install(bool startup, bool desktop, bool launch, Action<int>? step = null)
     {
+        step?.Invoke(0);
         var parent = Directory.GetParent(InstallFolder)!.FullName;
         Directory.CreateDirectory(parent);
         var identifier = Guid.NewGuid().ToString("N");
-        var stage = Path.Combine(parent, ".CodexLimitViewer-stage-" + identifier);
-        var backup = Path.Combine(parent, ".CodexLimitViewer-backup-" + identifier);
+        var stage = Path.Combine(parent, ".UsageLimitViewer-stage-" + identifier);
+        var backup = Path.Combine(parent, ".UsageLimitViewer-backup-" + identifier);
         bool hadExisting = Directory.Exists(InstallFolder), oldMoved = false, newMoved = false, committed = false;
-        var links = new[] { StartMenuLink, LegacyUninstallLink, StartupLink, DesktopLink }.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
+        var links = new[] { StartMenuLink, StartupLink, DesktopLink }.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
         var registration = UninstallEntry.Read();
         try
         {
             Directory.CreateDirectory(stage);
             ExtractPayload(stage);
             // The setup is the app itself: install this very executable.
-            File.Copy(CodexLimitViewer.Compat.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "CodexLimitViewer.exe"), true);
+            File.Copy(UsageLimitViewer.Compat.ProcessPath ?? throw new IOException("The setup executable path is unavailable."), Path.Combine(stage, "UsageLimitViewer.exe"), true);
             File.WriteAllText(Path.Combine(stage, ".installation-id"), identifier);
             // A full directory replacement prevents old versions and portable markers from surviving an update.
-            File.Delete(Path.Combine(stage, "portable.flag"));
             File.Delete(Path.Combine(stage, "portable"));
+            step?.Invoke(1);
             StopUserApps();
-            PreserveLegacyPortableData();
+            step?.Invoke(2);
             if (hadExisting) { Directory.Move(InstallFolder, backup); oldMoved = true; }
             Directory.Move(stage, InstallFolder); newMoved = true;
+            step?.Invoke(3);
             Shortcuts.Create(StartMenuLink, AppPath, InstallFolder);
-            Shortcuts.RemoveIfTarget(LegacyUninstallLink, SetupPath);
             if (startup) Shortcuts.Create(StartupLink, AppPath, InstallFolder);
             else if (File.Exists(StartupLink)) File.Delete(StartupLink);
             if (desktop) Shortcuts.Create(DesktopLink, AppPath, InstallFolder);
@@ -73,8 +76,8 @@ internal static class InstallerService
         }
         finally
         {
-            DeleteWorkingFolder(stage, ".CodexLimitViewer-stage-");
-            if (committed) DeleteWorkingFolder(backup, ".CodexLimitViewer-backup-");
+            DeleteWorkingFolder(stage, ".UsageLimitViewer-stage-");
+            if (committed) DeleteWorkingFolder(backup, ".UsageLimitViewer-backup-");
         }
         if (launch)
             _ = Process.Start(new ProcessStartInfo(AppPath) { UseShellExecute = true, WorkingDirectory = InstallFolder, WindowStyle = ProcessWindowStyle.Hidden })
@@ -83,16 +86,17 @@ internal static class InstallerService
 
     // keepData: leave settings and cache for a later reinstall. By default everything the app created is removed,
     // except the Claude Code bridge script that Claude Code's own settings may still point at.
-    internal static void Uninstall(bool keepData)
+    internal static void Uninstall(bool keepData, Action<int>? step = null)
     {
         bool removeData = !keepData;
+        step?.Invoke(0);
         StopUserApps();
+        step?.Invoke(1);
         Shortcuts.RemoveIfTarget(StartMenuLink, AppPath);
-        Shortcuts.RemoveIfTarget(LegacyUninstallLink, SetupPath);
         Shortcuts.RemoveIfTarget(StartupLink, AppPath);
         Shortcuts.RemoveIfTarget(DesktopLink, AppPath);
         UninstallEntry.Remove();
-        if (IsInsideInstallFolder(CodexLimitViewer.Compat.ProcessPath!))
+        if (IsInsideInstallFolder(UsageLimitViewer.Compat.ProcessPath!))
         {
             var marker = Path.Combine(InstallFolder, ".installation-id");
             if (!File.Exists(marker)) File.WriteAllText(marker, Guid.NewGuid().ToString("N"));
@@ -101,8 +105,13 @@ internal static class InstallerService
             StartRemovalHelper(InstallFolder, removeData, null, installationId);
             return;
         }
+        step?.Invoke(2);
         DeleteInstallFolder();
-        if (removeData) { DeleteDataFolder(DataFolder, "LocalApplicationData"); DeleteDataFolder(SettingsFolder, "ApplicationData"); }
+        step?.Invoke(3);
+        if (removeData)
+        {
+            DeleteDataFolder(DataFolder, "LocalApplicationData"); DeleteDataFolder(SettingsFolder, "ApplicationData");
+        }
     }
 
     private static int FolderSizeKilobytes(string folder) =>
@@ -111,7 +120,7 @@ internal static class InstallerService
     private static void ExtractPayload(string stage)
     {
         // Documents and helper scripts installed beside the app; development builds have none.
-        using var stream = typeof(InstallerService).Assembly.GetManifestResourceStream("CodexLimitViewerSetup.Payload.zip");
+        using var stream = typeof(InstallerService).Assembly.GetManifestResourceStream("UsageLimitViewerSetup.Payload.zip");
         if (stream == null) return;
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
         foreach (var entry in zip.Entries)
@@ -126,58 +135,26 @@ internal static class InstallerService
         }
     }
 
-    private static void PreserveLegacyPortableData()
-    {
-        var legacy = Path.Combine(InstallFolder, "Data");
-        bool portable = File.Exists(Path.Combine(InstallFolder, "portable")) || File.Exists(Path.Combine(InstallFolder, "portable.flag"));
-        if (!portable || !Directory.Exists(legacy)) return;
-        // A portable copy may have been put into the fixed installation location by hand. Preserve its full data
-        // before replacing that directory, and use only missing files as installed defaults.
-        var archive = Path.Combine(DataFolder, "ImportedPortable", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
-        CopyDataDirectory(legacy, archive, missingOnly: false);
-        CopyDataDirectory(legacy, DataFolder, missingOnly: true);
-    }
-
-    private static void CopyDataDirectory(string source, string destination, bool missingOnly)
-    {
-        if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
-            throw new IOException("Portable data contains a linked directory. Move that data out of the installation folder before updating.");
-        Directory.CreateDirectory(destination);
-        foreach (var entry in Directory.EnumerateFileSystemEntries(source))
-        {
-            var attributes = File.GetAttributes(entry);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Portable data contains a linked file or directory. Move that data out of the installation folder before updating.");
-            var target = Path.Combine(destination, Path.GetFileName(entry));
-            if ((attributes & FileAttributes.Directory) != 0) CopyDataDirectory(entry, target, missingOnly);
-            else if (!missingOnly || !File.Exists(target))
-            {
-                File.Copy(entry, target, overwrite: false);
-                File.SetLastWriteTimeUtc(target, File.GetLastWriteTimeUtc(entry));
-            }
-        }
-    }
-
     private static void StopUserApps()
     {
         var currentSid = WindowsIdentity.GetCurrent().User?.Value;
         if (currentSid == null) throw new IOException("Unable to determine the current Windows user.");
-        foreach (var process in Process.GetProcessesByName("CodexLimitViewer"))
+        foreach (var process in Process.GetProcessesByName("UsageLimitViewer"))
         {
             using (process)
             {
-                if (process.Id == CodexLimitViewer.Compat.ProcessId) continue; // Uninstalling runs from the app's own exe.
+                if (process.Id == UsageLimitViewer.Compat.ProcessId) continue; // Uninstalling runs from the app's own exe.
                 try
                 {
                     var owner = OwnerSid(process.Id);
                     if (owner == null && process.SessionId == Process.GetCurrentProcess().SessionId)
-                        throw new IOException("Please close Codex Limit Viewer before continuing.");
+                        throw new IOException("Please close Usage Limit Viewer before continuing.");
                     if (owner != currentSid) continue;
                     process.KillTree();
-                    if (!process.WaitForExit(10000)) throw new IOException("Please close Codex Limit Viewer before continuing.");
+                    if (!process.WaitForExit(10000)) throw new IOException("Please close Usage Limit Viewer before continuing.");
                 }
                 catch (InvalidOperationException) { } // The app already exited.
-                catch (System.ComponentModel.Win32Exception e) { throw new IOException("Please close Codex Limit Viewer before continuing.", e); }
+                catch (System.ComponentModel.Win32Exception e) { throw new IOException("Please close Usage Limit Viewer before continuing.", e); }
             }
         }
     }
@@ -202,15 +179,15 @@ internal static class InstallerService
     private static void DeleteInstallFolder()
     {
         var target = Path.GetFullPath(InstallFolder);
-        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CodexLimitViewer"));
+        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "UsageLimitViewer"));
         if (!target.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected installation path.");
         if (Directory.Exists(target)) Directory.Delete(target, true);
     }
 
-    private static void DeleteDataFolder(string folder, string knownFolder)
+    private static void DeleteDataFolder(string folder, string knownFolder, string name = "UsageLimitViewer")
     {
         var target = Path.GetFullPath(folder);
-        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath((Environment.SpecialFolder)Enum.Parse(typeof(Environment.SpecialFolder), knownFolder)), "CodexLimitViewer"));
+        var expected = Path.GetFullPath(Path.Combine(Environment.GetFolderPath((Environment.SpecialFolder)Enum.Parse(typeof(Environment.SpecialFolder), knownFolder)), name));
         if (!target.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new IOException("Unexpected data path.");
         if (!Directory.Exists(target)) return;
         foreach (var entry in Directory.EnumerateFileSystemEntries(target))
@@ -237,9 +214,9 @@ internal static class InstallerService
 
     internal static void ScheduleTemporarySetupCleanup()
     {
-        var folder = Path.GetDirectoryName(CodexLimitViewer.Compat.ProcessPath!);
+        var folder = Path.GetDirectoryName(UsageLimitViewer.Compat.ProcessPath!);
         if (folder == null || !Path.GetDirectoryName(folder)!.Equals(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) return;
-        if (!Path.GetFileName(folder).StartsWith("CodexLimitViewerSetup-", StringComparison.Ordinal)) return;
+        if (!Path.GetFileName(folder).StartsWith("UsageLimitViewerSetup-", StringComparison.Ordinal)) return;
         try { StartRemovalHelper(null, false, folder); } catch { }
     }
 
@@ -247,17 +224,17 @@ internal static class InstallerService
     private static void StartRemovalHelper(string? install, bool removeData, string? temporarySetup, string? expectedInstallationId = null)
     {
         static string Literal(string value) => "'" + value.Replace("'", "''") + "'";
-        var script = Path.Combine(Path.GetTempPath(), "CodexLimitViewer-Remove-" + Guid.NewGuid().ToString("N") + ".ps1");
+        var script = Path.Combine(Path.GetTempPath(), "UsageLimitViewer-Remove-" + Guid.NewGuid().ToString("N") + ".ps1");
         var body = "$ErrorActionPreference = 'Stop'\r\n" +
-            "$taskProcess = Get-Process -Id " + CodexLimitViewer.Compat.ProcessId + " -ErrorAction SilentlyContinue\r\n" +
+            "$taskProcess = Get-Process -Id " + UsageLimitViewer.Compat.ProcessId + " -ErrorAction SilentlyContinue\r\n" +
             "if ($taskProcess) { $taskProcess.WaitForExit() }\r\n";
         if (install != null)
         {
             if (expectedInstallationId == null) throw new IOException("The uninstall operation needs an installation identifier.");
-            body += @"$taskMutex = [Threading.Mutex]::new($false, 'Local\CodexLimitViewerSetup')" + "\r\n" +
+            body += @"$taskMutex = [Threading.Mutex]::new($false, 'Local\UsageLimitViewerSetup')" + "\r\n" +
                 "$taskOwnsMutex = $false\r\ntry {\r\n" +
                 "  try { $taskOwnsMutex = $taskMutex.WaitOne() } catch [Threading.AbandonedMutexException] { $taskOwnsMutex = $true }\r\n" +
-                "  $taskExpected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs/CodexLimitViewer'))\r\n" +
+                "  $taskExpected = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs/UsageLimitViewer'))\r\n" +
                 "  $taskTarget = [IO.Path]::GetFullPath(" + Literal(install) + ")\r\n" +
                 "  if ($taskTarget -ne $taskExpected) { throw 'Unexpected installation path' }\r\n" +
                 "  $taskMarker = Join-Path $taskTarget '.installation-id'\r\n" +
@@ -265,7 +242,7 @@ internal static class InstallerService
                 "    if (Test-Path -LiteralPath $taskTarget) { Remove-Item -LiteralPath $taskTarget -Recurse -Force }\r\n";
             if (removeData)
                 foreach (var (folder, known) in new[] { (DataFolder, "LocalApplicationData"), (SettingsFolder, "ApplicationData") })
-                    body += "    $taskExpectedData = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('" + known + "')) 'CodexLimitViewer'))\r\n" +
+                    body += "    $taskExpectedData = [IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath('" + known + "')) 'UsageLimitViewer'))\r\n" +
                         "    $taskData = [IO.Path]::GetFullPath(" + Literal(folder) + ")\r\n" +
                         "    if ($taskData -ne $taskExpectedData) { throw 'Unexpected data path' }\r\n" +
                         "    if (Test-Path -LiteralPath $taskData) {\r\n" +
@@ -282,7 +259,7 @@ internal static class InstallerService
         if (temporarySetup != null)
             body += "$taskTarget = [IO.Path]::GetFullPath(" + Literal(temporarySetup) + ")\r\n" +
                 "$taskParent = [IO.Path]::GetDirectoryName($taskTarget)\r\n" +
-                "if ($taskParent -ne [IO.Path]::GetTempPath().TrimEnd([IO.Path]::DirectorySeparatorChar) -or [IO.Path]::GetFileName($taskTarget) -notlike 'CodexLimitViewerSetup-*') { throw 'Unexpected temporary setup path' }\r\n" +
+                "if ($taskParent -ne [IO.Path]::GetTempPath().TrimEnd([IO.Path]::DirectorySeparatorChar) -or [IO.Path]::GetFileName($taskTarget) -notlike 'UsageLimitViewerSetup-*') { throw 'Unexpected temporary setup path' }\r\n" +
                 "if (Test-Path -LiteralPath $taskTarget) { Remove-Item -LiteralPath $taskTarget -Recurse -Force }\r\n";
         body += "Remove-Item -LiteralPath $PSCommandPath -Force\r\n";
         File.WriteAllText(script, body, new System.Text.UTF8Encoding(true));
@@ -296,7 +273,7 @@ internal static class InstallerService
 // The one registry entry the setup writes: it lists the app under Settings → Apps → Installed apps.
 internal static class UninstallEntry
 {
-    private const string KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodexLimitViewer";
+    private const string KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\UsageLimitViewer";
 
     internal static Dictionary<string, (object Value, RegistryValueKind Kind)>? Read()
     {
@@ -307,14 +284,14 @@ internal static class UninstallEntry
     internal static void Write(string app, string setup, string folder, string version, int sizeKilobytes)
     {
         using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
-        key.SetValue("DisplayName", "Codex Limit Viewer");
+        key.SetValue("DisplayName", "Usage Limit Viewer");
         key.SetValue("DisplayVersion", version);
         key.SetValue("Publisher", "hinatamaxxx");
         key.SetValue("DisplayIcon", app + ",0");
         key.SetValue("InstallLocation", folder);
         key.SetValue("UninstallString", "\"" + setup + "\" --uninstall");
         key.SetValue("QuietUninstallString", "\"" + setup + "\" --uninstall --silent");
-        key.SetValue("URLInfoAbout", "https://github.com/hinatamaxxx/codex-limit-viewer");
+        key.SetValue("URLInfoAbout", "https://github.com/hinatamaxxx/usage-limit-viewer");
         key.SetValue("EstimatedSize", sizeKilobytes, RegistryValueKind.DWord);
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
@@ -350,7 +327,7 @@ internal static class Shortcuts
             shortcut.TargetPath = target;
             shortcut.Arguments = arguments;
             shortcut.WorkingDirectory = workingDirectory;
-            shortcut.Description = "Codex Limit Viewer";
+            shortcut.Description = "Usage Limit Viewer";
             shortcut.IconLocation = target + ",0";
             shortcut.Save();
         }

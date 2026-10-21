@@ -1,11 +1,10 @@
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class ClaudeCodeUsage
 {
     internal static string SnapshotPath => Path.Combine(AppPaths.SharedDataDirectory, "claude-code-usage.json");
-
     internal static string BridgePath => Path.Combine(AppPaths.SharedDataDirectory, "ClaudeCodeStatusLine.ps1");
     private static string SettingsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
 
@@ -16,7 +15,7 @@ internal static class ClaudeCodeUsage
         try
         {
             if (!File.Exists(SettingsPath) || !IsBridgeCommand(File.ReadAllText(SettingsPath))) return;
-            using var stream = typeof(ClaudeCodeUsage).Assembly.GetManifestResourceStream("CodexLimitViewer.ClaudeCodeStatusLine.ps1")!;
+            using var stream = typeof(ClaudeCodeUsage).Assembly.GetManifestResourceStream("UsageLimitViewer.ClaudeCodeStatusLine.ps1")!;
             using var reader = new StreamReader(stream);
             var bridge = reader.ReadToEnd();
             if (File.Exists(BridgePath) && File.ReadAllText(BridgePath) == bridge) return;
@@ -26,17 +25,21 @@ internal static class ClaudeCodeUsage
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    internal static bool IsBridgeCommand(string settings)
+    internal static bool IsBridgeCommand(string settings) =>
+        BridgeCommand(settings)?.Contains("UsageLimitViewer/ClaudeCodeStatusLine.ps1", StringComparison.OrdinalIgnoreCase) == true;
+
+    // Claude Code's status line command with forward slashes, or null.
+    private static string? BridgeCommand(string settings)
     {
         try
         {
             using var doc = JsonDocument.Parse(settings, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
             return doc.RootElement.ValueKind == JsonValueKind.Object &&
                 doc.RootElement.TryGetProperty("statusLine", out var line) && line.ValueKind == JsonValueKind.Object &&
-                line.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String &&
-                command.GetString()!.Replace('\\', '/').Contains("CodexLimitViewer/ClaudeCodeStatusLine.ps1", StringComparison.OrdinalIgnoreCase);
+                line.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String
+                ? command.GetString()!.Replace('\\', '/') : null;
         }
-        catch (JsonException) { return false; }
+        catch (JsonException) { return null; }
     }
 
     // Shown as "—" until the first refresh finishes.
@@ -79,7 +82,7 @@ internal static class ClaudeCodeUsage
     {
         if (!limits.TryGetProperty(key, out var window) || window.ValueKind != JsonValueKind.Object ||
             !window.TryGetProperty("used_percentage", out var used) || !used.TryGetDouble(out var percent) ||
-            !CodexLimitViewer.Compat.IsFinite(percent) || percent < 0 || percent > 100) return;
+            !UsageLimitViewer.Compat.IsFinite(percent) || percent < 0 || percent > 100) return;
         DateTimeOffset? reset = null;
         if (window.TryGetProperty("resets_at", out var r) && r.TryGetInt64(out var seconds))
         {

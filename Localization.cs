@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class L
 {
@@ -8,7 +8,7 @@ internal static class L
     private static readonly Dictionary<string, string> Translations = Load();
     private static Dictionary<string, string> Load()
     {
-        using var stream = typeof(L).Assembly.GetManifestResourceStream("CodexLimitViewer.English.json")!;
+        using var stream = typeof(L).Assembly.GetManifestResourceStream("UsageLimitViewer.English.json")!;
         return JsonSerializer.Deserialize<Dictionary<string, string>>(stream)!;
     }
     internal static string T(string text) => English && Translations.TryGetValue(text, out var value) ? value : text;
@@ -24,7 +24,7 @@ internal static class L
 internal static class TooltipText
 {
     internal const int Limit = 63; // NotifyIcon.Text maximum.
-    internal static string Title => "Codex Limit Viewer " + UpdateCheck.Current.ToString(3);
+    internal static string Title => "Usage Limit Viewer " + Updater.Current.ToString(3);
 
     internal static string Status(Reading reading)
     {
@@ -34,7 +34,6 @@ internal static class TooltipText
             : $"{ClockTextRenderer.TaskbarName(reading.Provider)} 残り {ClockTextRenderer.TaskbarValue(reading)}{stale}";
     }
 
-    internal static string? UpdateNotice(Version? newer) => newer == null ? null : L.F("新しいバージョン {version} があります", ("version", newer.ToString(3)));
 
     // App and version, then status, then one extra line; lower lines are dropped to stay within the limit.
     internal static string For(params string?[] lines)

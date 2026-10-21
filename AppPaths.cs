@@ -2,24 +2,23 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class AppPaths
 {
-    // A file named "portable" beside the exe keeps settings and cache in the adjacent Data folder (v1.0 used "portable.flag").
-    internal static bool IsPortable { get; } = File.Exists(Path.Combine(AppContext.BaseDirectory, "portable")) ||
-        File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.flag"));
+    // A file named "portable" beside the exe keeps settings and cache in the adjacent Data folder.
+    internal static bool IsPortable { get; } = File.Exists(Path.Combine(AppContext.BaseDirectory, "portable"));
     private static string PortableData => Path.Combine(AppContext.BaseDirectory, "Data");
     // Cache and the Claude Code bridge stay on this machine; the bridge path is fixed because Claude Code's settings point at it.
-    internal static string SharedDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexLimitViewer");
+    internal static string SharedDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UsageLimitViewer");
     internal static string DataDirectory => IsPortable ? PortableData : SharedDataDirectory;
-    internal static string SettingsDirectory => IsPortable ? PortableData : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CodexLimitViewer");
+    internal static string SettingsDirectory => IsPortable ? PortableData : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UsageLimitViewer");
 }
 
 // Windows lists shortcuts in the Startup folder under Settings → Apps → Startup and records the user's choice itself.
 internal static class StartupShortcut
 {
-    internal static string PathName => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Codex Limit Viewer.lnk");
+    internal static string PathName => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Usage Limit Viewer.lnk");
     internal static bool Exists => File.Exists(PathName);
     internal static bool IsEnabled => Exists && IsApprovedByWindows(ReadApproval());
 
@@ -44,7 +43,7 @@ internal static class StartupShortcut
             File.Delete(PathName);
             return true;
         }
-        string exe = CodexLimitViewer.Compat.ProcessPath ?? throw new IOException("Application path is unavailable.");
+        string exe = UsageLimitViewer.Compat.ProcessPath ?? throw new IOException("Application path is unavailable.");
         Directory.CreateDirectory(Path.GetDirectoryName(PathName)!);
         var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new IOException("Windows shortcuts are unavailable.");
         object shell = Activator.CreateInstance(type)!;
@@ -57,7 +56,7 @@ internal static class StartupShortcut
             link.TargetPath = exe;
             link.Arguments = "";
             link.WorkingDirectory = Path.GetDirectoryName(exe)!;
-            link.Description = "Codex Limit Viewer";
+            link.Description = "Usage Limit Viewer";
             link.IconLocation = exe + ",0";
             link.Save();
         }

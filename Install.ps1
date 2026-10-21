@@ -1,16 +1,12 @@
-﻿param([switch]$Silent, [switch]$NoLaunch, [switch]$Startup)
+﻿# Installs Usage Limit Viewer from this source folder: builds it if needed, then runs the app's own setup.
+# Most people use the one-line installer in README.md instead.
+param([switch]$Rebuild)
 $ErrorActionPreference = 'Stop'
-$setup = Join-Path $PSScriptRoot 'dist/CodexLimitViewer.exe'
-if (!(Test-Path -LiteralPath $setup)) {
-    throw 'Run tools/BuildRelease.ps1 first, or double-click the distributed Setup.exe.'
+$exe = Join-Path $PSScriptRoot 'dist/UsageLimitViewer.exe'
+if ($Rebuild -or !(Test-Path -LiteralPath $exe)) {
+    & (Join-Path $PSScriptRoot 'tools/BuildRelease.ps1')
 }
-$arguments = @('--setup')
-if ($Silent) { $arguments += '--silent' }
-if ($NoLaunch) { $arguments += '--no-launch' }
-if ($Startup) { $arguments += '--startup' }
-$options = @{ FilePath = $setup; PassThru = $true }
-if ($Silent) { $options.WindowStyle = 'Hidden' }
-$options.ArgumentList = $arguments
-$process = Start-Process @options
-$process.WaitForExit() # Wait for setup itself, not the resident app it may launch.
-if ($process.ExitCode -ne 0) { throw "Setup failed (exit $($process.ExitCode))." }
+$setup = Start-Process -FilePath $exe -ArgumentList '--setup', '--silent', '--no-launch' -PassThru
+$setup.WaitForExit()
+if ($setup.ExitCode -ne 0) { throw "Setup failed (exit $($setup.ExitCode)). See $env:TEMP\UsageLimitViewer-Setup.log" }
+Start-Process -FilePath (Join-Path $env:LOCALAPPDATA 'Programs\UsageLimitViewer\UsageLimitViewer.exe') -ArgumentList '--install-finished'
