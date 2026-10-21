@@ -162,7 +162,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             updateTimer.Interval = 60 * 60 * 1000;
             if (restartInto != null) { RestartWhenIdle(); return; }
-            if (updateState.LastCheck is not { } last || DateTimeOffset.UtcNow - last > TimeSpan.FromDays(1)) _ = CheckForUpdate(manual: false);
+            // Once a day; after a failed check (offline, for example) try again every hour.
+            var due = updateState.Failures > 0 ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+            if (updateState.LastCheck is not { } last || DateTimeOffset.UtcNow - last >= due) _ = CheckForUpdate(manual: false);
         };
         form.VisibleChanged += (_, _) => { if (!form.Visible && restartInto != null) RestartWhenIdle(); };
         tray.BalloonTipClicked += (_, _) => { if (available != null) _ = CheckForUpdate(manual: true); };
