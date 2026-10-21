@@ -60,10 +60,11 @@ internal sealed class SetupForm : Form
         version.Text = "Version " + typeof(SetupForm).Assembly.GetName().Version!.ToString(3);
         brand.ForeColor = heading.ForeColor = destination.ForeColor = Ink;
         version.ForeColor = explanation.ForeColor = destinationTitle.ForeColor = optionsTitle.ForeColor = removalHint.ForeColor = languageTitle.ForeColor = status.ForeColor = Muted;
+        steps.ForeColor = Ink;
         destinationCard.Controls.AddRange([destinationTitle, destination]);
         optionsCard.Controls.AddRange([optionsTitle, startup, desktop, launch, keepData, removalHint, steps]);
         steps.Visible = false;
-        destinationTitle.BackColor = destination.BackColor = optionsTitle.BackColor = removalHint.BackColor = Card;
+        destinationTitle.BackColor = destination.BackColor = optionsTitle.BackColor = removalHint.BackColor = steps.BackColor = Card;
         foreach (var option in new[] { startup, desktop, launch, keepData }) { option.BackColor = Card; option.ForeColor = Ink; }
         language.BackColor = Card;
         language.ForeColor = Ink;
