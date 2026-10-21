@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 // Radio: one of several exclusive choices, shown with the standard dot instead of a check mark.
 internal sealed record MenuEntry(string Text, Action? Click = null, bool Checked = false, bool Enabled = true, bool Default = false,
@@ -31,16 +31,43 @@ internal sealed class TrayMenu : IDisposable
     [DllImport("uxtheme.dll", EntryPoint = "#135")] private static extern int SetPreferredAppMode(int mode);
     [DllImport("uxtheme.dll", EntryPoint = "#136")] private static extern void FlushMenuThemes();
     [StructLayout(LayoutKind.Sequential)] private struct TrackParams { public int Size; public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    private delegate void WinEventProc(IntPtr hook, uint eventType, IntPtr window, int objectId, int childId, uint thread, uint time);
+    [DllImport("user32.dll")] private static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc callback, uint process, uint thread, uint flags);
+    [DllImport("user32.dll")] private static extern bool UnhookWinEvent(IntPtr hook);
+    [DllImport("user32.dll")] private static extern bool GetMenuItemRect(IntPtr window, IntPtr menu, uint item, out NativeRect rect);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int cx, int cy, uint flags);
 
-    private readonly NativeWindow owner = new();
+    // Receives WM_MENUSELECT, which says which item (and so which submenu) is being opened.
+    private sealed class MenuOwner : NativeWindow
+    {
+        internal IntPtr SelectedMenu;
+        internal uint SelectedIndex;
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_MENUSELECT = 0x011F, MF_POPUP = 0x10;
+            if (m.Msg == WM_MENUSELECT && ((long)m.WParam >> 16 & MF_POPUP) != 0)
+            {
+                SelectedMenu = m.LParam;
+                SelectedIndex = (uint)((long)m.WParam & 0xFFFF);
+            }
+            base.WndProc(ref m);
+        }
+    }
+
+    private readonly MenuOwner owner = new();
+    private readonly WinEventProc popupEvent;   // Kept in a field: a collected delegate would crash the hook.
+    private int openPopups;
     internal Func<IReadOnlyList<MenuEntry>>? Build;
     internal event Action? Opening;
     internal bool IsOpen { get; private set; }
 
     internal TrayMenu()
     {
+        popupEvent = OnPopupEvent;
         // A hidden tool window owns the menu so it can take the foreground and close on an outside click.
-        owner.CreateHandle(new CreateParams { Caption = "Codex Limit Viewer Menu", Style = unchecked((int)0x80000000), ExStyle = 0x80 });
+        owner.CreateHandle(new CreateParams { Caption = "Usage Limit Viewer Menu", Style = unchecked((int)0x80000000), ExStyle = 0x80 });
         // Explorer's undocumented switch for dark Win32 menus. Without it (older Windows) the menu stays light.
         try { SetPreferredAppMode(1); AllowDarkModeForWindow(owner.Handle, true); FlushMenuThemes(); }
         catch (Exception e) when (e is EntryPointNotFoundException or DllNotFoundException) { }
@@ -65,13 +92,34 @@ internal sealed class TrayMenu : IDisposable
             uint flags = TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON | TPM_VERTICAL | (taskbarBelow ? TPM_BOTTOMALIGN : 0);
             SetForegroundWindow(owner.Handle);
             IsOpen = true;
+            openPopups = 0;
+            // EVENT_SYSTEM_MENUPOPUPSTART..END for this process only, delivered through this thread's message loop.
+            var hook = taskbarBelow ? SetWinEventHook(0x0006, 0x0007, IntPtr.Zero, popupEvent, (uint)Compat.ProcessId, 0, 0) : IntPtr.Zero;
             int command;
             try { command = TrackPopupMenuEx(handle, flags, point.X, taskbarBelow ? anchor.Top : anchor.Bottom, owner.Handle, ref parameters); }
-            finally { IsOpen = false; }
+            finally
+            {
+                IsOpen = false;
+                openPopups = 0;
+                if (hook != IntPtr.Zero) UnhookWinEvent(hook);
+            }
             PostMessage(owner.Handle, 0, IntPtr.Zero, IntPtr.Zero); // WM_NULL, so the next click on the tray closes a reopened menu.
             if (actions.TryGetValue(command, out var action)) action();
         }
         finally { DestroyMenu(handle); }
+    }
+
+    // Submenus open upward from their parent row, like the menu itself opens up from the taskbar. Windows lines a
+    // submenu up with the top of its row and grows it downward; move it so its bottom meets the row's bottom instead.
+    private void OnPopupEvent(IntPtr hook, uint eventType, IntPtr window, int objectId, int childId, uint thread, uint time)
+    {
+        if (eventType == 0x0007) { if (openPopups > 0) openPopups--; return; }
+        if (++openPopups < 2 || owner.SelectedMenu == IntPtr.Zero) return; // The first popup is the menu itself.
+        if (!GetMenuItemRect(IntPtr.Zero, owner.SelectedMenu, owner.SelectedIndex, out var row) || !GetWindowRect(window, out var popup)) return;
+        if (popup.Bottom <= row.Bottom) return; // Windows already opened it upward.
+        var area = Screen.FromPoint(new Point(row.Left, row.Top)).WorkingArea;
+        int top = Math.Max(area.Top, row.Bottom - (popup.Bottom - popup.Top));
+        SetWindowPos(window, IntPtr.Zero, popup.Left, top, 0, 0, 0x0001 | 0x0004 | 0x0010); // NOSIZE | NOZORDER | NOACTIVATE
     }
 
     private static void Append(IntPtr menu, IReadOnlyList<MenuEntry> entries, Dictionary<int, Action> actions)

@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal static class LayeredSurface
 {

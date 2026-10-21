@@ -1,0 +1,58 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PowerShell syntax
+        shell: powershell
+        run: |
+          # Read as UTF-8 and parse the text: get.ps1 has no BOM (irm | iex needs that), and Windows PowerShell
+          # would otherwise read it as ANSI and break on the Japanese text.
+          $failed = $false
+          foreach ($file in Get-ChildItem -Recurse -Filter *.ps1) {
+            $text = [IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8)
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseInput($text, [ref]$null, [ref]$errors)
+            foreach ($e in $errors) { Write-Host "$($file.Name): $($e.Message)"; $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Build
+        shell: powershell
+        run: ./tools/BuildRelease.ps1
+
+      - name: Self-test
+        shell: powershell
+        run: |
+          $test = Start-Process -FilePath dist/UsageLimitViewer.exe -ArgumentList '--self-test' -PassThru -Wait
+          Get-Content dist/test-results.txt
+          if ($test.ExitCode -ne 0) { exit 1 }
+
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        run: |
+          $version = [string]([xml](Get-Content UsageLimitViewer.csproj -Raw)).Project.PropertyGroup.Version
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match version $version." }
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          gh release create "${{ github.ref_name }}" --title "Usage Limit Viewer ${{ github.ref_name }}" --notes-file .github/release-notes.md `
+            "release/v$version/usage-limit-viewer.zip" "release/v$version/usage-limit-viewer.zip.sha256"

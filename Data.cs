@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 internal record Quota(string Label, double Remaining, DateTimeOffset? Reset);
 internal record Reading(string Provider, List<Quota> Quotas, DateTimeOffset? Updated, string? Error = null, string? Source = null)
@@ -17,6 +17,8 @@ internal sealed class Preferences
     public string TaskbarBottom { get; set; } = "Antigravity";
     // true: "5-hour%(weekly%)"; false: "weekly%(5-hour%)".
     public bool FiveHourFirst { get; set; } = true;
+    // Install new versions on their own (checked once a day); on by default.
+    public bool AutoUpdate { get; set; } = true;
     // Card order in the usage popup after the reader dragged cards; empty keeps taskbar services first.
     public List<string> CardOrder { get; set; } = [];
     public int X { get; set; } = int.MinValue;
@@ -26,17 +28,6 @@ internal sealed class Preferences
     private static string SettingsFile => Path.Combine(AppPaths.SettingsDirectory, "settings.json");
     public static Preferences Load()
     {
-        try
-        {
-            // v1.0 kept settings with the cache in %LOCALAPPDATA%; move them to the roaming settings folder once.
-            var legacy = Path.Combine(Folder, "settings.json");
-            if (!File.Exists(SettingsFile) && File.Exists(legacy) && !legacy.Equals(SettingsFile, StringComparison.OrdinalIgnoreCase))
-            {
-                Directory.CreateDirectory(AppPaths.SettingsDirectory);
-                File.Move(legacy, SettingsFile);
-            }
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         try
         {
             var value = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(SettingsFile)) ?? new();
@@ -87,13 +78,13 @@ internal static class QuotaParser
         foreach (var key in new[] { "primary", "secondary" })
         {
             if (!b.TryGetProperty(key, out var w) || w.ValueKind != JsonValueKind.Object ||
-                !w.TryGetProperty("usedPercent", out var used) || !used.TryGetDouble(out var percent) || !CodexLimitViewer.Compat.IsFinite(percent)) continue;
+                !w.TryGetProperty("usedPercent", out var used) || !used.TryGetDouble(out var percent) || !UsageLimitViewer.Compat.IsFinite(percent)) continue;
             double duration = w.TryGetProperty("windowDurationMins", out var d) && d.TryGetDouble(out var minutes) ? minutes : 0;
             var label = duration switch { 300 => "5時間", 10080 => "週間", > 0 => $"{duration / 60:0.#}時間", _ => key };
             DateTimeOffset? reset = null;
             if (w.TryGetProperty("resetsAt", out var r) && r.TryGetInt64(out var seconds))
                 try { reset = DateTimeOffset.FromUnixTimeSeconds(seconds); } catch (ArgumentOutOfRangeException) { }
-            rows.Add(new(prefix + label, CodexLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
+            rows.Add(new(prefix + label, UsageLimitViewer.Compat.Clamp(100 - percent, 0, 100), reset));
         }
     }
     // A headless reply without the "command" result that spent tokens means agy sent "/usage" to the model as a prompt.
@@ -123,7 +114,7 @@ internal static class QuotaParser
             foreach (var item in q.EnumerateObject())
             {
                 if (item.Value.ValueKind != JsonValueKind.Object || !item.Value.TryGetProperty("remaining_fraction", out var f) ||
-                    !f.TryGetDouble(out var fraction) || !CodexLimitViewer.Compat.IsFinite(fraction) || fraction < 0 || fraction > 1) continue;
+                    !f.TryGetDouble(out var fraction) || !UsageLimitViewer.Compat.IsFinite(fraction) || fraction < 0 || fraction > 1) continue;
                 DateTimeOffset? reset = null;
                 if (item.Value.TryGetProperty("reset_time", out var r) && r.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(r.GetString(), out var dt)) reset = dt;
                 rows.Add(new(item.Name, fraction * 100, reset));

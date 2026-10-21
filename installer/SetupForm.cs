@@ -2,7 +2,7 @@ using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 
-namespace CodexLimitViewerSetup;
+namespace UsageLimitViewerSetup;
 
 internal sealed class SetupForm : Form
 {
@@ -16,7 +16,8 @@ internal sealed class SetupForm : Form
     private readonly Label caption = NewLabel();
     private readonly ChromeCloseButton captionClose = new();
     private readonly Label brand = NewLabel(), version = NewLabel(), heading = NewLabel(), explanation = NewLabel();
-    private readonly Label destinationTitle = NewLabel(), destination = NewLabel(), optionsTitle = NewLabel(), removalHint = NewLabel();
+    private readonly Label destinationTitle = NewLabel(), destination = NewLabel(), optionsTitle = NewLabel(), removalHint = NewLabel(), steps = NewLabel();
+    private int currentStep = -1;
     private readonly Label languageTitle = NewLabel(), status = NewLabel();
     private readonly RoundedCard destinationCard = new(), optionsCard = new();
     private readonly ModernCheckBox startup = new(), desktop = new(), launch = new(), keepData = new();
@@ -37,8 +38,8 @@ internal sealed class SetupForm : Form
         this.publicPreview = publicPreview;
         var families = FontFamily.Families.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         textFamily = families.Contains("Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
-        Text = "Codex Limit Viewer";
-        AccessibleName = options.Uninstall ? "Codex Limit Viewer Uninstall" : "Codex Limit Viewer Setup";
+        Text = "Usage Limit Viewer";
+        AccessibleName = options.Uninstall ? "Usage Limit Viewer Uninstall" : "Usage Limit Viewer Setup";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.None;
         MaximizeBox = MinimizeBox = false;
@@ -50,24 +51,26 @@ internal sealed class SetupForm : Form
         ClientSize = new Size(660, 568);
         LoadAppIcon();
         captionIcon.Image = appImage.Image;
-        caption.Text = "Codex Limit Viewer";
+        caption.Text = "Usage Limit Viewer";
         caption.ForeColor = Muted;
         captionClose.Click += (_, _) => Close();
         caption.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) DragWindow(); };
         captionIcon.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) DragWindow(); };
-        brand.Text = "Codex Limit Viewer";
+        brand.Text = "Usage Limit Viewer";
         version.Text = "Version " + typeof(SetupForm).Assembly.GetName().Version!.ToString(3);
         brand.ForeColor = heading.ForeColor = destination.ForeColor = Ink;
         version.ForeColor = explanation.ForeColor = destinationTitle.ForeColor = optionsTitle.ForeColor = removalHint.ForeColor = languageTitle.ForeColor = status.ForeColor = Muted;
         destinationCard.Controls.AddRange([destinationTitle, destination]);
-        optionsCard.Controls.AddRange([optionsTitle, startup, desktop, launch, keepData, removalHint]);
+        optionsCard.Controls.AddRange([optionsTitle, startup, desktop, launch, keepData, removalHint, steps]);
+        steps.Visible = false;
         destinationTitle.BackColor = destination.BackColor = optionsTitle.BackColor = removalHint.BackColor = Card;
         foreach (var option in new[] { startup, desktop, launch, keepData }) { option.BackColor = Card; option.ForeColor = Ink; }
         language.BackColor = Card;
         language.ForeColor = Ink;
         language.SelectedIndex = options.English ? 1 : 0;
-        startup.Checked = options.Startup ?? (!publicPreview && InstallerService.StartupEnabled);
-        desktop.Checked = options.Desktop ?? (!publicPreview && InstallerService.DesktopEnabled);
+        // A new install starts with Windows by default; an update shows the current choice.
+        startup.Checked = options.Startup ?? (publicPreview || InstallerService.DefaultStartup);
+        desktop.Checked = options.Desktop ?? (!publicPreview && InstallerService.DefaultDesktop);
         launch.Checked = options.Launch;
         keepData.Checked = options.KeepData;
         startup.Visible = desktop.Visible = launch.Visible = !options.Uninstall;
@@ -85,7 +88,8 @@ internal sealed class SetupForm : Form
         action.Click += async (_, _) => await RunOperation();
         close.Click += (_, _) => Close();
         FormClosing += (_, e) => { if (running) e.Cancel = true; };
-        AcceptButton = action;
+        // Enter and the pointer's snap-to-default go to the button focused first: Close when removing the app.
+        AcceptButton = options.Uninstall ? close : action;
         CancelButton = close;
         UpdateText();
         LayoutUi();
@@ -98,7 +102,7 @@ internal sealed class SetupForm : Form
 
     private void LoadAppIcon()
     {
-        using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("CodexLimitViewerSetup.App.ico");
+        using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("UsageLimitViewerSetup.App.ico");
         if (stream == null) return;
         using var icon = new Icon(stream, 128, 128);
         Icon = (Icon)icon.Clone();
@@ -145,7 +149,7 @@ internal sealed class SetupForm : Form
 
     private void LayoutUi()
     {
-        scale = (previewDpi ?? CodexLimitViewer.Compat.SystemDpi) / 96f;
+        scale = (previewDpi ?? UsageLimitViewer.Compat.SystemDpi) / 96f;
         SuspendLayout();
         try
         {
@@ -153,12 +157,13 @@ internal sealed class SetupForm : Form
             caption.Font = UiFont(12);
             foreach (var label in new[] { explanation, destination, status }) label.Font = UiFont(14);
             foreach (var label in new[] { version, destinationTitle, optionsTitle, removalHint, languageTitle }) label.Font = UiFont(13);
+            steps.Font = UiFont(14);
             brand.Font = UiFont(25, true);
             heading.Font = UiFont(22, true);
             startup.Font = desktop.Font = launch.Font = keepData.Font = UiFont(14);
             action.Font = close.Font = UiFont(14, true);
             language.Font = UiFont(13);
-            destination.Text = WrapPath(publicPreview ? @"%LOCALAPPDATA%\Programs\CodexLimitViewer" : InstallerService.InstallFolder, destination.Font, S(558));
+            destination.Text = WrapPath(publicPreview ? @"%LOCALAPPDATA%\Programs\UsageLimitViewer" : InstallerService.InstallFolder, destination.Font, S(558));
             int pathLines = destination.Text.Count(c => c == '\n') + 1;
             int cardHeight = Math.Max(98, 54 + pathLines * 22);
             int optionsHeight = options.Uninstall ? 130 : 171;
@@ -182,6 +187,7 @@ internal sealed class SetupForm : Form
             Place(launch, 18, 127, 560, 32);
             Place(keepData, 18, 45, 560, 32);
             Place(removalHint, 50, 87, 528, 23);
+            Place(steps, 18, 14, 560, optionsHeight - 24);
             Place(status, 32, footerY + 40, 596, 43);
             Place(progress, 32, footerY + 86, 596, 3);
             Place(languageTitle, 32, footerY + 110, 68, 24);
@@ -213,9 +219,14 @@ internal sealed class SetupForm : Form
     private void UpdateText()
     {
         bool updating = !publicPreview && File.Exists(InstallerService.AppPath);
-        heading.Text = complete ? T("準備ができました", "You're all set") : options.Uninstall ? T("アプリを削除", "Uninstall the app")
+        heading.Text = complete ? options.Uninstall ? T("アンインストールが完了しました", "Uninstall complete") : T("インストールが完了しました", "Installation complete")
+            : options.Uninstall ? T("アプリを削除", "Uninstall the app")
             : updating ? T("最新版に更新", "Update your app") : T("インストール", "Install the app");
-        explanation.Text = options.Uninstall ? T("アプリ、ショートカット、設定と取得データを削除します。", "Remove the app, its shortcuts, settings and cached data.")
+        explanation.Text = complete && options.Uninstall
+            ? keepData.Checked ? T("アプリと登録を削除しました。設定とデータは残しています。", "The app and its listing are removed. Settings and data are kept.")
+                : T("アプリ、登録、設定とデータを削除しました。", "The app, its listing, settings and data are removed.")
+            : complete ? T("スタートメニューの「Usage Limit Viewer」から起動できます。", "Start it from Usage Limit Viewer in the Start menu.")
+            : options.Uninstall ? T("アプリ、ショートカット、設定と取得データを削除します。", "Remove the app, its shortcuts, settings and cached data.")
             : updating ? T("設定を引き継いで、アプリを置き換えます。", "Replace the existing app and keep your settings.")
             : T("タスクバーから、残りの利用枠をひと目で。", "See your remaining AI limits from the taskbar.");
         destinationTitle.Text = T("インストール先", "Installation folder");
@@ -226,6 +237,8 @@ internal sealed class SetupForm : Form
         keepData.Text = T("設定とデータを残す（再インストールしたときに引き継ぐ）", "Keep settings and data (for a later reinstall)");
         removalHint.Text = keepData.Checked ? T("設定と取得データは残します。", "Your saved settings and cached data will be kept.") : T("設定と取得データも削除します。", "Your saved settings and cached data will be removed.");
         languageTitle.Text = T("言語", "Language");
+        steps.Text = string.Join(Environment.NewLine, StepNames().Select((name, i) =>
+            (complete || i < currentStep ? "✓  " : i == currentStep ? "…  " : "     ") + name));
         action.Text = complete ? T("完了", "Done") : options.Uninstall ? T("削除", "Uninstall") : updating ? T("更新する", "Update") : T("インストール", "Install");
         close.Text = T("閉じる", "Close");
         if (!running && !complete && !failed) status.Text = options.Uninstall
@@ -248,10 +261,27 @@ internal sealed class SetupForm : Form
             && Matches(new Point(optionsCard.Right - S(8), optionsCard.Top + optionsCard.Height / 2), Card);
     }
 
+    private string[] StepNames() => options.Uninstall
+        ? [T("アプリを終了しています", "Closing the app"), T("ショートカットと登録を削除しています", "Removing shortcuts and the listing"),
+           T("アプリのファイルを削除しています", "Removing the app's files"),
+           keepData.Checked ? T("設定とデータは残します", "Keeping settings and data") : T("設定とデータを削除しています", "Removing settings and data")]
+        : [T("ファイルを準備しています", "Preparing files"), T("アプリを終了しています", "Closing the app"),
+           T("アプリを配置しています", "Putting the app in place"), T("スタートメニューと自動起動を設定しています", "Setting up the Start menu and startup")];
+
+    // The options card turns into the list of stages: done ones get a check, the current one an ellipsis.
+    private void ShowStep(int index)
+    {
+        currentStep = index;
+        optionsTitle.Visible = startup.Visible = desktop.Visible = launch.Visible = keepData.Visible = removalHint.Visible = false;
+        steps.Visible = true;
+        UpdateText();
+    }
+
     private async Task RunOperation()
     {
         if (complete) { Close(); return; }
         running = true;
+        ShowStep(0);
         captionClose.Enabled = action.Enabled = close.Enabled = language.Enabled = startup.Enabled = desktop.Enabled = launch.Enabled = keepData.Enabled = false;
         progress.Visible = true;
         progress.Style = ProgressBarStyle.Marquee;
@@ -260,16 +290,16 @@ internal sealed class SetupForm : Form
         try
         {
             bool startupChoice = startup.Checked, desktopChoice = desktop.Checked, launchChoice = launch.Checked, keepChoice = keepData.Checked;
+            void Step(int index) => BeginInvoke(() => ShowStep(index));
             await Task.Run(() =>
             {
-                if (options.Uninstall) InstallerService.Uninstall(keepChoice);
-                else InstallerService.Install(startupChoice, desktopChoice, launchChoice);
+                if (options.Uninstall) InstallerService.Uninstall(keepChoice, Step);
+                else InstallerService.Install(startupChoice, desktopChoice, launchChoice, Step);
             });
             complete = true;
             ExitCode = 0;
             status.ForeColor = Ink;
-            status.Text = options.Uninstall ? T("この画面を閉じると、削除が完了します。", "Close this window to finish removing the app.")
-                : T("インストールが完了しました。スタートメニューから起動できます。", "Installation complete. Launch the app from the Start Menu.");
+            status.Text = "";
             UpdateText();
         }
         catch (Exception e)
@@ -287,7 +317,9 @@ internal sealed class SetupForm : Form
             running = false;
             captionClose.Enabled = action.Enabled = close.Enabled = true;
             language.Enabled = startup.Enabled = desktop.Enabled = launch.Enabled = keepData.Enabled = !complete;
-            action.Focus();
+            // After removing the app only "Close" remains; there is nothing else to do.
+            if (complete && options.Uninstall) { action.Visible = false; AcceptButton = close; }
+            (complete && options.Uninstall ? close : action).Focus();
         }
     }
 
@@ -305,7 +337,7 @@ internal sealed class RoundedCard : Panel
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = Shapes.Rounded(new RectangleF(.5f, .5f, Width - 1, Height - 1), 12 * CodexLimitViewer.Compat.SystemDpi / 96f);
+        using var path = Shapes.Rounded(new RectangleF(.5f, .5f, Width - 1, Height - 1), 12 * UsageLimitViewer.Compat.SystemDpi / 96f);
         using var fill = new SolidBrush(Color.FromArgb(40, 41, 47));
         using var border = new Pen(Color.FromArgb(60, 63, 73));
         e.Graphics.FillPath(fill, path);

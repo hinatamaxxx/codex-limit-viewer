@@ -1,12 +1,12 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
-namespace CodexLimitViewerSetup;
+namespace UsageLimitViewerSetup;
 
 // Writes System.AppUserModel.ID into a shortcut file (no registry), matching the ID the app sets for itself at startup.
 internal static class AppUserModel
 {
-    internal const string Id = "hinatamaxxx.CodexLimitViewer";
+    internal const string Id = "hinatamaxxx.UsageLimitViewer";
 
     [ComImport, Guid("00021401-0000-0000-C000-000000000046")] private class ShellLink { }
     [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

@@ -1,18 +1,19 @@
 #requires -Version 5.1
+# Builds the release: usage-limit-viewer.zip (the app and its scripts) and usage-limit-viewer.zip.sha256.
+# get.ps1 and the app's self-update download the zip and accept it only when the .sha256 matches.
 param()
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
-$project = Join-Path $root 'CodexLimitViewer.csproj'
+$project = Join-Path $root 'UsageLimitViewer.csproj'
 $version = [string]([xml](Get-Content -LiteralPath $project -Raw)).Project.PropertyGroup.Version
 $release = Join-Path $root "release/v$version"
 $work = Join-Path $release ('.work-' + [guid]::NewGuid().ToString('N'))
 $payload = Join-Path $work 'payload'
-$portable = Join-Path $work "Codex-Limit-Viewer-v$version-portable-win-x64"
-New-Item -ItemType Directory -Path $payload, $portable -Force | Out-Null
+$package = Join-Path $work 'package'
+New-Item -ItemType Directory -Path $payload, $package -Force | Out-Null
 try {
-    # Documents and scripts that go beside the exe; the setup embeds them and installs them with itself.
-    # README images stay out of the exe to keep it small; the portable zip carries them as files.
-    foreach ($file in @('README.md','README.en.md','LICENSE','EnableClaudeCode.ps1','ClaudeCodeStatusLine.ps1')) {
+    # Documents and scripts that go beside the exe; the exe embeds them so `--setup` can install them too.
+    foreach ($file in @('README.md', 'README.en.md', 'LICENSE', 'EnableClaudeCode.ps1', 'ClaudeCodeStatusLine.ps1')) {
         Copy-Item -LiteralPath (Join-Path $root $file) -Destination $payload
     }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -20,30 +21,29 @@ try {
     if (Test-Path -LiteralPath $payloadZip) { Remove-Item -LiteralPath $payloadZip }
     [IO.Compression.ZipFile]::CreateFromDirectory($payload, $payloadZip, [IO.Compression.CompressionLevel]::Optimal, $false)
 
-    # One small exe for .NET Framework 4.8 (part of Windows) is the app, its setup (when named "...Setup...")
-    # and its uninstaller. Its libraries are embedded, so nothing else has to sit beside it.
+    # One small exe for .NET Framework 4.8 (part of Windows): the app, its setup (--setup) and its uninstaller.
     $dist = Join-Path $root 'dist'
     & dotnet build $project -c Release -o $dist
     if ($LASTEXITCODE -ne 0) { throw 'Application build failed.' }
-    $exe = Join-Path $dist 'CodexLimitViewer.exe'
+    $exe = Join-Path $dist 'UsageLimitViewer.exe'
+    $built = (Get-Item -LiteralPath $exe).VersionInfo.FileVersion
+    if (-not $built.StartsWith($version)) { throw "The exe version $built does not match $version." }
 
-    $setupName = "Codex-Limit-Viewer-v$version-Setup-win-x64.exe"
-    Copy-Item -LiteralPath $exe -Destination (Join-Path $release $setupName) -Force
-
-    Copy-Item -LiteralPath $exe -Destination $portable
-    Get-ChildItem -LiteralPath $payload | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $portable -Recurse }
-    Copy-Item -LiteralPath (Join-Path $root 'docs') -Destination $portable -Recurse
-    'Codex Limit Viewer portable' | Set-Content -LiteralPath (Join-Path $portable 'portable') -Encoding ascii
-    $portableName = "Codex-Limit-Viewer-v$version-portable-win-x64.zip"
-    $portableZip = Join-Path $release $portableName
-    if (Test-Path -LiteralPath $portableZip) { Remove-Item -LiteralPath $portableZip }
-    [IO.Compression.ZipFile]::CreateFromDirectory($portable, $portableZip, [IO.Compression.CompressionLevel]::Optimal, $true)
-
-    $checksums = foreach ($name in @($setupName, $portableName)) {
-        $hash = (Get-FileHash -LiteralPath (Join-Path $release $name) -Algorithm SHA256).Hash.ToLowerInvariant()
-        "$hash  $name"
+    Copy-Item -LiteralPath $exe -Destination $package
+    Get-ChildItem -LiteralPath $payload | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $package }
+    $zipName = 'usage-limit-viewer.zip'
+    $zip = Join-Path $release $zipName
+    if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip }
+    # Files sit at the top of the zip (no folder); entry names use the file names as they are.
+    $archive = [IO.Compression.ZipFile]::Open($zip, 'Create')
+    try {
+        foreach ($file in Get-ChildItem -LiteralPath $package -File) {
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $file.Name, [IO.Compression.CompressionLevel]::Optimal)
+        }
     }
-    $checksums | Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding ascii
+    finally { $archive.Dispose() }
+    $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText("$zip.sha256", "$hash  $zipName`n", (New-Object Text.UTF8Encoding $false))
 }
 finally {
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }

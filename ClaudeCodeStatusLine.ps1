@@ -1,5 +1,6 @@
 param(
-    [string]$OutputPath = (Join-Path $env:LOCALAPPDATA 'CodexLimitViewer/claude-code-usage.json')
+    # Beside this script, so a copy kept in an older app folder keeps feeding that folder.
+    [string]$OutputPath = (Join-Path $PSScriptRoot 'claude-code-usage.json')
 )
 
 try {

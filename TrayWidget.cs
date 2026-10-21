@@ -1,7 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
-namespace CodexLimitViewer;
+namespace UsageLimitViewer;
 
 // Notification slots reserve space; this single surface paints across only those slots.
 internal sealed class TrayWidget : Form
@@ -33,7 +33,7 @@ internal sealed class TrayWidget : Form
         DoubleBuffered = true;
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Color.FromArgb(35, 35, 35);
-        Text = "Codex Limit Viewer Taskbar";
+        Text = "Usage Limit Viewer Taskbar";
         AccessibleName = L.T("CodexとAntigravityの残り使用量");
         timer.Tick += (_, _) => Align();
         timer.Start();
@@ -119,23 +119,23 @@ internal sealed class TrayWidget : Form
         {
             hovered = pointerInside;
             hoverHandled = false;
-            hoverStarted = CodexLimitViewer.Compat.TickCount64;
+            hoverStarted = UsageLimitViewer.Compat.TickCount64;
             needsPaint = true;
         }
         if (hovered && !hoverHandled)
         {
             if (menu.IsOpen) hoverHandled = true;
-            else if (CodexLimitViewer.Compat.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
+            else if (UsageLimitViewer.Compat.TickCount64 - hoverStarted >= 400 && HoverDetailsEnabled?.Invoke() == true)
             {
                 hoverHandled = true;
                 HoverDetails?.Invoke();
             }
         }
         bool showName = hovered && !menu.IsOpen && HoverDetailsEnabled?.Invoke() == false &&
-            CodexLimitViewer.Compat.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
+            UsageLimitViewer.Compat.TickCount64 - hoverStarted >= SystemInformation.MouseHoverTime;
         if (showName && !tooltipVisible)
         {
-            string text = TooltipText?.Invoke() ?? "Codex Limit Viewer";
+            string text = TooltipText?.Invoke() ?? "Usage Limit Viewer";
             var size = TextRenderer.MeasureText(text, SystemFonts.StatusFont);
             tooltip.Show(text, this, (Width - size.Width - 8) / 2, -size.Height - 12, 5000);
             tooltipVisible = true;
@@ -147,7 +147,7 @@ internal sealed class TrayWidget : Form
     protected override void OnPaint(PaintEventArgs e) { }
     private void RenderSurface()
     {
-        using var bitmap = ClockTextRenderer.Render(Width, Height, CodexLimitViewer.Compat.SystemDpi, topReading, bottomReading, hovered);
+        using var bitmap = ClockTextRenderer.Render(Width, Height, UsageLimitViewer.Compat.SystemDpi, topReading, bottomReading, hovered);
         LayeredSurface.Present(Handle, bitmap, taskbarPosition);
     }
     protected override void Dispose(bool disposing)

@@ -1,22 +1,36 @@
 <img src="docs/icon.png" alt="" width="96" align="right">
 
-# Codex Limit Viewer
+# Usage Limit Viewer
 
-[Download](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0) · [日本語](README.md)
+[日本語](README.md) | English
 
-See your remaining AI quota in two rows in the Windows 11 system tray. Choose two services from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
+Usage Limit Viewer shows how much of your AI usage limits is left as two lines in the Windows 11 system tray (taskbar). Choose the two services to show from Codex, Antigravity CLI, Claude Code, and Grok Build CLI.
 
 ![Taskbar display](docs/taskbar.jpg)
 
+## Quick install
+
+**Ask an AI agent**: tell Claude Code, Codex, or another agent:
+
+> Install https://github.com/hinatamaxxx/usage-limit-viewer.
+
+**Install it yourself**: run this line in PowerShell (no need to run as administrator):
+
+```powershell
+irm https://raw.githubusercontent.com/hinatamaxxx/usage-limit-viewer/main/get.ps1 | iex
+```
+
+It downloads the latest version, checks its SHA-256, and installs it into `%LOCALAPPDATA%\Programs\UsageLimitViewer`. It also turns on startup at Windows sign-in. A finished screen appears at the end; click **Done** to start the app.
+
 ## Features
 
-- Check your remaining quota from the taskbar while you work.
-- Click to see quota by service, reset times, and the last fetch time.
-- Optionally open details on hover; this is off by default.
-- Choose the displayed services by dragging cards in “Usage”; switch between Japanese and English from the right-click menu.
-- Optionally start the app when you sign in to Windows; this is off by default.
+- See your remaining quota in the taskbar while you work.
+- Click to open “Usage” with each service's remaining quota, reset time, and last fetch time.
+- Choose the services to show by dragging and dropping cards in “Usage”.
+- New versions install themselves.
+- Japanese and English.
 
-![Quota details](docs/preview-en.jpg)
+![Usage](docs/preview-en.jpg)
 
 ## Prepare your services
 
@@ -31,27 +45,6 @@ See your remaining AI quota in two rows in the Windows 11 system tray. Choose tw
 
 Antigravity quota may be unavailable with some agy versions. With agy 1.2.12, the quota command can run as a model prompt and consume quota. If the app detects this, it stops fetching Antigravity until the app is restarted.
 
-## Download and start
-
-### Setup edition
-
-Choose this edition for regular use.
-
-1. Download `Codex-Limit-Viewer-v1.2.0-Setup-win-x64.exe` from the [release page](https://github.com/hinatamaxxx/codex-limit-viewer/releases/tag/v1.2.0).
-2. Run the EXE and click “Install.” No administrator privileges are required.
-3. After installation, launch “Codex Limit Viewer” from the Start Menu.
-
-![Setup window](docs/setup-en.jpg)
-
-### Portable edition
-
-Choose this edition to run the app from an extracted folder without installation.
-
-1. Download and extract `Codex-Limit-Viewer-v1.2.0-portable-win-x64.zip`.
-2. Run `CodexLimitViewer.exe` in the folder.
-
-Keep the `portable` file (`portable.flag` in v1.0.0) in place. Settings and quota cache are stored in the adjacent `Data` folder. CLI sign-ins and Claude Code status-line integration files are shared with the setup edition. Only one copy can run in the same Windows session, including across both editions.
-
 ### Keep the display visible
 
 In Windows **Settings → Personalization → Taskbar → Other system tray icons**, turn on **all four tray icons** for this app. Keep the four icons adjacent to form the two-row quota display.
@@ -63,8 +56,8 @@ In Windows **Settings → Personalization → Taskbar → Other system tray icon
 | Action | Result |
 | --- | --- |
 | Left-click | Open “Usage”. Click again or outside the popup to close it. |
-| Right-click | The menu starts with your current quota. Besides “Open usage” and “Refresh now”, value order, hover behavior, startup and language are under “More”. “Exit” asks for confirmation before stopping the app. |
-| Enable “Open details on hover” | Hover over the quota display to open details. Move the pointer outside both the display and popup to close it. |
+| Right-click | The menu starts with your current quota. Besides “Open usage” and “Refresh limits now”, value order, hover behavior, startup and language are under “More”, and updates under “Updates”. “Exit the app” asks for confirmation first. |
+| Enable “Open details on hover” | Hover over the quota display to open “Usage”. Move the pointer outside both the display and the popup to close it. |
 
 “Usage” shows each service with remaining-quota bars. Drag and drop cards to reorder them: **the first card is the taskbar’s top row and the second its bottom row** (tagged “Top” and “Bottom”). Cards from the third on fold to one line; click one to open it. The order is saved.
 
@@ -76,25 +69,18 @@ Quota normally refreshes every minute (every three minutes for Antigravity and G
 
 ## Startup and updates
 
-Enable startup in setup or under “More” in the right-click menu. You can also turn it on or off in Windows **Settings → Apps → Startup** or Task Manager; the menu check mark shows the same state. If you move a portable folder, turn startup off and on again to update its path.
-
-The app checks for a new version at launch and every six hours. When one is available, the right-click menu shows “Download version …”. To update the setup edition, run the new setup EXE. It keeps your settings and replaces the app in the same folder.
-
-To update the portable edition, exit the app and extract the new ZIP. To keep your settings, copy the original `Data` folder beside the new EXE. Update startup settings if the folder changes.
-
-If startup is duplicated after moving from an earlier version, disable the old entry in Windows **Settings → Apps → Startup**.
+- **Startup**: on after installing. Switch it under “More” → “Start with Windows” in the right-click menu. You can also turn it on or off in Windows **Settings → Apps → Startup** or Task Manager; the menu check mark shows the same state.
+- **Updates**: the app checks for a new version once a day and, when there is one, swaps it in and restarts (no administrator rights). Only files matching the release's SHA-256 are used. Successful updates are silent; you are told only if updating fails twice in a row. “Updates” in the right-click menu has “Check and update now” and an “Update automatically (daily)” switch. When automatic updates are off, the app tells you a new version is available.
 
 ## If Claude quota is missing
 
 First run `claude auth login` in Claude Code CLI to check your sign-in. The app normally uses this sign-in to fetch 5-hour and weekly quota. Quota is account-wide, so usage from Claude Desktop and the web is included.
 
-Automatic fetching uses an undocumented Anthropic API that may change. If it becomes unavailable, enable the [official status line](https://code.claude.com/docs/en/statusline) bridge to display quota supplied after Claude Code CLI responses. For the setup edition, run this once in PowerShell:
+Automatic fetching uses an undocumented Anthropic API that may change. If it becomes unavailable, enable the [official status line](https://code.claude.com/docs/en/statusline) bridge to display quota supplied after Claude Code CLI responses. Run this once in PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\CodexLimitViewer\EnableClaudeCode.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\UsageLimitViewer\EnableClaudeCode.ps1"
 ```
-
-For the portable edition, run `EnableClaudeCode.ps1` in the extracted folder. This bridge updates when you use Claude Code CLI.
 
 ## Data and sign-ins
 
@@ -104,29 +90,26 @@ Settings and quota cache are stored on this PC. The app uses Claude's sign-in on
 
 | Kind | Location |
 | --- | --- |
-| Registry (setup edition only) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\CodexLimitViewer` (the Installed apps entry; nothing else is written) |
-| Program | `%LOCALAPPDATA%\Programs\CodexLimitViewer` |
-| Settings | `%APPDATA%\CodexLimitViewer\settings.json` (moved automatically from `%LOCALAPPDATA%` used by v1.0.0) |
-| Quota cache, diagnostics, status-line bridge script | `%LOCALAPPDATA%\CodexLimitViewer` |
-| Start menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Codex Limit Viewer.lnk` |
-| Startup (only when on) | `Codex Limit Viewer.lnk` in the Startup folder |
-| Desktop (only when chosen) | `Codex Limit Viewer.lnk` on the desktop |
+| Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\UsageLimitViewer` (the Installed apps entry; nothing else is written) |
+| Program | `%LOCALAPPDATA%\Programs\UsageLimitViewer` |
+| Settings | `%APPDATA%\UsageLimitViewer\settings.json` |
+| Quota cache, update record, diagnostics, status-line bridge script | `%LOCALAPPDATA%\UsageLimitViewer` |
+| Start menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Usage Limit Viewer.lnk` |
+| Startup (only when on) | `Usage Limit Viewer.lnk` in the Startup folder |
 
 When you switch startup in Windows settings, Windows itself records that choice. The app only reads it and never changes it.
 
 ## Uninstalling
 
-- **Setup edition**: In Windows **Settings → Apps → Installed apps**, select “Codex Limit Viewer” and click **Uninstall**. By default, settings and quota cache are removed too; turn on “Keep settings and data” to carry them over to a reinstall. The Claude Code status-line bridge script is kept because Claude Code's settings may point to it.
-  - To run it from a command line, use `"%LOCALAPPDATA%\Programs\CodexLimitViewer\CodexLimitViewer.exe" --uninstall --silent`. Add `--keep-settings` to keep settings.
-- **Portable edition**: Disable startup, exit the app, and delete the extracted folder.
+In Windows **Settings → Apps → Installed apps**, select “Usage Limit Viewer” and click **Uninstall**. By default, settings and quota cache are removed too; turn on “Keep settings and data” to carry them over to a reinstall. Progress and the result appear in the same window. The Claude Code status-line bridge script is kept because Claude Code's settings may point to it.
 
-Disable startup entries created by earlier versions through their settings or Windows “Startup.”
+To run it from a command line, use `"%LOCALAPPDATA%\Programs\UsageLimitViewer\UsageLimitViewer.exe" --uninstall --silent`. Add `--keep-settings` to keep settings.
 
 ## Requirements and limitations
 
 - Unofficial, unsigned app for Windows 11. It runs on .NET Framework 4.8, which is part of Windows, so nothing else needs installing (the app is about 1.4 MB).
 - Mixed-DPI monitors and startup after a reboot are unverified.
 - Service or CLI changes may prevent quota fetching. Grok support covers the Grok Build CLI weekly quota, not separate per-chat limits on the web.
-- Available under the [MIT License](LICENSE).
+- Provided as is. Bug and security reports, questions, and requests are not accepted (use at your own risk, as stated in the [MIT License](LICENSE)).
 
 Development assistance: Codex (GPT-6 Sol / Medium, GPT-6.1 Sol / Ultra and High) and Claude Code (Claude Opus 5.5 / Medium). Japanese and English proofreading: Gemini 3.8 Flash (High) / High. The values following each model name are reasoning-effort settings.
