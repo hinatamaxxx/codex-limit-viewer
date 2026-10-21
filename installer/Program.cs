@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace UsageLimitViewerSetup;
 
-// Uninstalling removes settings and cache by default; --keep-settings keeps them (--remove-data is accepted from v1.0).
+// Uninstalling removes settings and cache by default; --keep-settings keeps them.
 internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bool? Startup, bool? Desktop, bool KeepData, bool English)
 {
     internal static SetupOptions Parse(string[] args)
@@ -12,19 +12,17 @@ internal sealed record SetupOptions(bool Silent, bool Uninstall, bool Launch, bo
         bool Has(string value) => args.Contains(value, StringComparer.OrdinalIgnoreCase);
         if (Has("--startup") && Has("--no-startup")) throw new ArgumentException("Choose --startup or --no-startup.");
         if (Has("--desktop") && Has("--no-desktop")) throw new ArgumentException("Choose --desktop or --no-desktop.");
-        if (Has("--keep-settings") && Has("--remove-data")) throw new ArgumentException("Choose --keep-settings or --remove-data.");
         return new(Has("--silent"), Has("--uninstall"), !Has("--no-launch"),
             Has("--startup") ? true : Has("--no-startup") ? false : null,
             Has("--desktop") ? true : Has("--no-desktop") ? false : null, Has("--keep-settings"), Has("--english"));
     }
 }
 
-// The released exe is both the app and its setup: a file name containing "Setup", or --setup / --uninstall, opens the setup.
+// The exe is both the app and its setup: --setup installs it, --uninstall removes it.
 internal static class SetupProgram
 {
     internal static bool Requested(string[] args) =>
-        args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase) || a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)) ||
-        Path.GetFileNameWithoutExtension(UsageLimitViewer.Compat.ProcessPath ?? "").Contains("setup", StringComparison.OrdinalIgnoreCase);
+        args.Any(a => a.Equals("--setup", StringComparison.OrdinalIgnoreCase) || a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase));
 
     [DllImport("dwmapi.dll")] private static extern int DwmFlush();
     internal static int Run(string[] args)
@@ -102,7 +100,7 @@ internal static class SetupProgram
                 var copy = Path.Combine(temporary, "UsageLimitViewerSetup.exe");
                 File.Copy(UsageLimitViewer.Compat.ProcessPath!, copy);
                 var start = new ProcessStartInfo(copy) { UseShellExecute = true, WorkingDirectory = temporary };
-                start.SetArguments(args);
+                start.SetArguments(options.Uninstall ? args : args.Prepend("--setup"));
                 _ = Process.Start(start) ?? throw new IOException("Unable to start the setup copy.");
                 return 0;
             }
