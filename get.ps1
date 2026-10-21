@@ -7,7 +7,8 @@
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    $japanese = (Get-UICulture).Name -like 'ja*'
+    # Japanese when either this console or Windows itself is Japanese.
+    $japanese = (Get-UICulture).Name -like 'ja*' -or [Globalization.CultureInfo]::InstalledUICulture.Name -like 'ja*'
     $progress = @{ Step = 0 }   # A hashtable, so the function below updates the same counter.
     function Say([string]$ja, [string]$en) {
         $progress.Step++
@@ -30,7 +31,10 @@
         New-Item -ItemType Directory -Path $work | Out-Null
         $zip = Join-Path $work $asset
         Invoke-WebRequest $zipUrl -OutFile $zip -UseBasicParsing
-        $expected = ((Invoke-WebRequest $shaUrl -UseBasicParsing).Content -split '\s+')[0].Trim().ToLowerInvariant()
+        # Release files come back as bytes from Invoke-WebRequest, so save the checksum and read it as text.
+        $shaFile = Join-Path $work "$asset.sha256"
+        Invoke-WebRequest $shaUrl -OutFile $shaFile -UseBasicParsing
+        $expected = ((Get-Content -LiteralPath $shaFile -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
 
         Say 'ダウンロードしたファイルを照合しています（SHA-256）' 'Checking the download (SHA-256)'
         $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
